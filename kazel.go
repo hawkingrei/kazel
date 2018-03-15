@@ -120,7 +120,7 @@ func newVendorer(root, cfgPath string, dryRun bool) (*Vendorer, error) {
 		icache:       map[icacheKey]icacheVal{},
 		cfg:          cfg,
 		newRules:     make(map[string][]*bzl.Rule),
-		managedAttrs: []string{"srcs", "deps", "library"},
+		managedAttrs: []string{"srcs", "deps", "embed"},
 	}
 
 	for _, sp := range cfg.SkippedPaths {
@@ -353,7 +353,7 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, pkg *b
 
 	if pkg.IsCommand() {
 		rules = append(rules, newRule(RuleTypeGoBinary, namer, map[string]bzl.Expr{
-			"library": asExpr(":" + namer(RuleTypeGoLibrary)),
+			"embed": asExpr(":" + namer(RuleTypeGoLibrary)),
 		}))
 	}
 
@@ -366,7 +366,7 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, pkg *b
 
 		rules = append(rules, newRule(RuleTypeCGoGenrule, namer, cgoRuleAttrs))
 
-		goLibAttrs.Set("library", asExpr(":"+namer(RuleTypeCGoGenrule)))
+		goLibAttrs.SetList("embed", asExpr([]string{":" + namer(RuleTypeGoLibrary)}).(*bzl.ListExpr))
 	}
 
 	if len(testSrcs.List) != 0 {
@@ -376,7 +376,8 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, pkg *b
 		testRuleAttrs.SetList("deps", v.extractDeps(pkg.TestImports))
 
 		if addGoDefaultLibrary {
-			testRuleAttrs.Set("library", asExpr(":"+namer(RuleTypeGoLibrary)))
+			testRuleAttrs.SetList("embed", asExpr([]string{":" + namer(RuleTypeGoLibrary)}).(*bzl.ListExpr))
+
 		}
 		rules = append(rules, newRule(RuleTypeGoTest, namer, testRuleAttrs))
 	}
@@ -693,7 +694,7 @@ func reconcileLoad(f *bzl.File, rules []*bzl.Rule) {
 		// Select only the Go rules we need to import, excluding builtins like filegroup.
 		// TODO: make less fragile
 		switch r.Kind() {
-		case "go_prefix", "go_library", "go_binary", "go_test", "go_proto_library", "cgo_genrule", "cgo_library":
+		case "go_prefix", "go_library", "go_binary", "go_test", "cgo_genrule", "cgo_library":
 			usedRuleKindsMap[r.Kind()] = true
 		}
 	}
