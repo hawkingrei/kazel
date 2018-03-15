@@ -689,15 +689,38 @@ func ReconcileRules(pkgPath string, rules []*bzl.Rule, managedAttrs []string, dr
 }
 
 func reconcileLoad(f *bzl.File, rules []*bzl.Rule) {
-	usedRuleKindsMap := map[string]bool{}
+
+	contains := func(s []string, e string) bool {
+		for _, a := range s {
+			if a == e {
+				return true
+			}
+		}
+		return false
+	}
+
+	usedRuleKindsMap := map[string][]string{}
 	for _, r := range rules {
 		// Select only the Go rules we need to import, excluding builtins like filegroup.
 		// TODO: make less fragile
+
 		switch r.Kind() {
 		case "go_prefix", "go_library", "go_binary", "go_test", "cgo_genrule", "cgo_library":
-			usedRuleKindsMap[r.Kind()] = true
+			if !contains(usedRuleKindsMap["@io_bazel_rules_go//go:def.bzl"], r.Kind()) {
+				usedRuleKindsMap["@io_bazel_rules_go//go:def.bzl"] = append(usedRuleKindsMap["@io_bazel_rules_go//go:def.bzl"], r.Kind())
+			}
+		case "gazelle":
+			if !contains(usedRuleKindsMap["@bazel_gazelle//:def.bzl"], r.Kind()) {
+				usedRuleKindsMap["@bazel_gazelle//:def.bzl"] = append(usedRuleKindsMap["@bazel_gazelle//:def.bzl"], r.Kind())
+			}
+		case "go_proto_library":
+			if !contains(usedRuleKindsMap["@io_bazel_rules_go//proto:def.bzl"], r.Kind()) {
+				usedRuleKindsMap["@io_bazel_rules_go//proto:def.bzl"] = append(usedRuleKindsMap["@io_bazel_rules_go//proto:def.bzl"], r.Kind())
+			}
 		}
 	}
+
+	usedRule := []string{"@io_bazel_rules_go//go:def.bzl", "@bazel_gazelle//:def.bzl", "@io_bazel_rules_go//proto:def.bzl"}
 
 	usedRuleKindsList := []string{}
 	for k := range usedRuleKindsMap {
@@ -706,22 +729,20 @@ func reconcileLoad(f *bzl.File, rules []*bzl.Rule) {
 	sort.Strings(usedRuleKindsList)
 
 	for _, r := range f.Rules("load") {
-		const goRulesLabel = "@io_bazel_rules_go//go:def.bzl"
 		args := bzl.Strings(&bzl.ListExpr{List: r.Call.List})
 		if len(args) == 0 {
 			continue
 		}
-		if args[0] != goRulesLabel {
+		if !contains(usedRule, args[0]) {
 			continue
 		}
-		if len(usedRuleKindsList) == 0 {
+		if len(usedRuleKindsMap[args[0]]) == 0 {
 			f.DelRules(r.Kind(), r.Name())
 			continue
 		}
 		r.Call.List = asExpr(append(
-			[]string{goRulesLabel}, usedRuleKindsList...,
+			[]string{args[0]}, usedRuleKindsMap[args[0]]...,
 		)).(*bzl.ListExpr).List
-		break
 	}
 }
 
