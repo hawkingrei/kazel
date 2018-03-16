@@ -120,7 +120,7 @@ func newVendorer(root, cfgPath string, dryRun bool) (*Vendorer, error) {
 		icache:       map[icacheKey]icacheVal{},
 		cfg:          cfg,
 		newRules:     make(map[string][]*bzl.Rule),
-		managedAttrs: []string{"srcs", "deps", "embed"},
+		managedAttrs: []string{"srcs", "deps"},
 	}
 
 	for _, sp := range cfg.SkippedPaths {
@@ -310,8 +310,13 @@ func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package) error {
 	srcNameMap := func(srcs ...[]string) *bzl.ListExpr {
 		return asExpr(merge(srcs...)).(*bzl.ListExpr)
 	}
-
-	srcs := srcNameMap(pkg.GoFiles, pkg.SFiles)
+	goFileNotProto := []string{}
+	for _, v := range pkg.GoFiles {
+		if !strings.Contains(v, ".pb.go") {
+			goFileNotProto = append(goFileNotProto, v)
+		}
+	}
+	srcs := srcNameMap(goFileNotProto, pkg.SFiles)
 	cgoSrcs := srcNameMap(pkg.CgoFiles, pkg.CFiles, pkg.CXXFiles, pkg.HFiles)
 	testSrcs := srcNameMap(pkg.TestGoFiles)
 	xtestSrcs := srcNameMap(pkg.XTestGoFiles)
@@ -656,17 +661,19 @@ func ReconcileRules(pkgPath string, rules []*bzl.Rule, managedAttrs []string, dr
 			goProtoLibrary = append(goProtoLibrary, ":"+r.Name())
 		}
 		if (r.Kind() == "go_library" || r.Kind() == "go_test") && (len(rules) == 3 || len(rules) == 4) && !strings.Contains(pkgPath, "vendor") {
-			r.SetAttr("tags", asExpr([]string{automanagedTag}))
+			if r.Attr("tags") == nil {
+				r.SetAttr("tags", asExpr([]string{automanagedTag}))
+			}
 		}
 		oldRules[r.Name()] = r
 	}
+	if len(goProtoLibrary) > 0 {
+		r := oldRules["go_default_library"]
+		r.SetAttr("embed", asExpr(goProtoLibrary))
+		oldRules["go_default_library"] = r
+	}
+
 	for _, r := range rules {
-		if r.Name() == "go_default_library" && !strings.Contains(pkgPath, "vendor") {
-			if len(goProtoLibrary) != 0 {
-				r.SetAttr("embed", asExpr(goProtoLibrary))
-			}
-			oldRules[r.Name()] = r
-		}
 		o, ok := oldRules[r.Name()]
 		if !ok {
 			f.Stmt = append(f.Stmt, r.Call)
@@ -749,7 +756,9 @@ func reconcileLoad(f *bzl.File, rules []*bzl.Rule) {
 			continue
 		}
 		if len(usedRuleKindsMap[args[0]]) == 0 {
-			f.DelRules(r.Kind(), r.Name())
+			if r.Name() != "" {
+				f.DelRules(r.Kind(), r.Name())
+			}
 			continue
 		}
 		r.Call.List = asExpr(append(
