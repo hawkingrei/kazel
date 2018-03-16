@@ -625,6 +625,7 @@ func findBuildFile(pkgPath string) (bool, string) {
 // ReconcileRules reconciles, simplifies, and writes the rules for the specified package, adding
 // additional dependency rules as needed.
 func ReconcileRules(pkgPath string, rules []*bzl.Rule, managedAttrs []string, dryRun bool, manageGoRules bool) (bool, error) {
+	goProtoLibrary := []string{}
 	_, path := findBuildFile(pkgPath)
 	info, err := os.Stat(path)
 	if err != nil && os.IsNotExist(err) {
@@ -651,9 +652,21 @@ func ReconcileRules(pkgPath string, rules []*bzl.Rule, managedAttrs []string, dr
 	}
 	oldRules := make(map[string]*bzl.Rule)
 	for _, r := range f.Rules("") {
+		if r.Kind() == "go_proto_library" {
+			goProtoLibrary = append(goProtoLibrary, ":"+r.Name())
+		}
+		if (r.Kind() == "go_library" || r.Kind() == "go_test") && (len(rules) == 3 || len(rules) == 4) && !strings.Contains(pkgPath, "vendor") {
+			r.SetAttr("tags", asExpr([]string{automanagedTag}))
+		}
 		oldRules[r.Name()] = r
 	}
 	for _, r := range rules {
+		if r.Name() == "go_default_library" && !strings.Contains(pkgPath, "vendor") {
+			if len(goProtoLibrary) != 0 {
+				r.SetAttr("embed", asExpr(goProtoLibrary))
+			}
+			oldRules[r.Name()] = r
+		}
 		o, ok := oldRules[r.Name()]
 		if !ok {
 			f.Stmt = append(f.Stmt, r.Call)
@@ -703,7 +716,6 @@ func reconcileLoad(f *bzl.File, rules []*bzl.Rule) {
 	for _, r := range rules {
 		// Select only the Go rules we need to import, excluding builtins like filegroup.
 		// TODO: make less fragile
-
 		switch r.Kind() {
 		case "go_prefix", "go_library", "go_binary", "go_test", "cgo_genrule", "cgo_library":
 			if !contains(usedRuleKindsMap["@io_bazel_rules_go//go:def.bzl"], r.Kind()) {
