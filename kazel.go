@@ -353,7 +353,7 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, pkg *b
 
 	if pkg.IsCommand() {
 		rules = append(rules, newRule(RuleTypeGoBinary, namer, map[string]bzl.Expr{
-			"embed": asExpr(":" + namer(RuleTypeGoLibrary)),
+			"embed": asExpr([]string{":" + namer(RuleTypeGoLibrary)}),
 		}))
 	}
 
