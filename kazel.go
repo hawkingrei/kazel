@@ -667,7 +667,7 @@ func ReconcileRules(pkgPath string, rules []*bzl.Rule, managedAttrs []string, dr
 		}
 		oldRules[r.Name()] = r
 	}
-	if len(goProtoLibrary) > 0 {
+	if len(goProtoLibrary) > 0 && goProtoLibrary != nil {
 		r := oldRules["go_default_library"]
 		r.SetAttr("embed", asExpr(goProtoLibrary))
 		oldRules["go_default_library"] = r
