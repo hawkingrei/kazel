@@ -344,7 +344,7 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, pkg *b
 	var goLibAttrs = make(Attrs)
 	var rules []*bzl.Rule
 
-	deps := v.extractDeps(pkg.Imports)
+	deps := v.extractDeps(depMapping(pkg.Imports))
 
 	if len(srcs.List) >= 0 {
 		goLibAttrs.Set("srcs", srcs)
@@ -378,7 +378,7 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, pkg *b
 		testRuleAttrs := make(Attrs)
 
 		testRuleAttrs.SetList("srcs", testSrcs)
-		testRuleAttrs.SetList("deps", v.extractDeps(pkg.TestImports))
+		testRuleAttrs.SetList("deps", v.extractDeps(depMapping(pkg.TestImports)))
 
 		if addGoDefaultLibrary {
 			testRuleAttrs.SetList("embed", asExpr([]string{":" + namer(RuleTypeGoLibrary)}).(*bzl.ListExpr))
@@ -460,7 +460,7 @@ func (v *Vendorer) walkVendor() error {
 
 func (v *Vendorer) extractDeps(deps []string) *bzl.ListExpr {
 	return asExpr(
-		apply(
+		depMapping(apply(
 			merge(deps),
 			filterer(func(s string) bool {
 				pkg, err := v.importPkg(s, v.root)
@@ -482,7 +482,7 @@ func (v *Vendorer) extractDeps(deps []string) *bzl.ListExpr {
 			mapper(func(s string) string {
 				return v.resolve(s).String()
 			}),
-		),
+		)),
 	).(*bzl.ListExpr)
 }
 
@@ -665,6 +665,16 @@ func ReconcileRules(pkgPath string, rules []*bzl.Rule, managedAttrs []string, dr
 				r.SetAttr("tags", asExpr([]string{automanagedTag}))
 			}
 		}
+		if r.Kind() == "go_library" || r.Kind() == "go_test" {
+			if listExpr, ok := r.Attr("deps").(*bzl.ListExpr); ok {
+				olddeps := []string{}
+				for _, v := range listExpr.List {
+					olddeps = append(olddeps, v.(*bzl.StringExpr).Value)
+				}
+				newdeps := depMapping(olddeps)
+				r.SetAttr("deps", asExpr(newdeps))
+			}
+		}
 		oldRules[r.Name()] = r
 	}
 	if len(goProtoLibrary) > 0 && goProtoLibrary != nil {
@@ -824,4 +834,26 @@ func context() *build.Context {
 
 func walk(root string, walkFn filepath.WalkFunc) error {
 	return nil
+}
+
+func depMapping(dep []string) []string {
+	result := []string{}
+	mapping := map[string]string{
+		"//vendor/github.com/golang/protobuf/proto:go_default_library":         "@com_github_golang_protobuf//proto:go_default_library",
+		"//vendor/github.com/golang/protobuf/ptypes/any:go_default_library":    "@com_github_golang_protobuf//ptypes/any:go_default_library",
+		"//vendor/github.com/gogo/protobuf/gogoproto:go_default_library":       "@com_github_gogo_protobuf//gogoproto:go_default_library",
+		"//vendor/github.com/gogo/protobuf/proto:go_default_library":           "@com_github_gogo_protobuf//proto:go_default_library",
+		"//vendor/github.com/gogo/protobuf/protoc-gen-gogo:go_default_library": "@com_github_gogo_protobuf//protoc-gen-gogo:go_default_library",
+		"//vendor/github.com/gogo/protobuf/sortkeys:go_default_library":        "@com_github_gogo_protobuf//sortkeys:go_default_library",
+		"//vendor/github.com/gogo/protobuf/types:go_default_library":           "@com_github_gogo_protobuf//types:go_default_library",
+	}
+	for _, v := range dep {
+		mapdep, ok := mapping[v]
+		if ok {
+			result = append(result, mapdep)
+		} else {
+			result = append(result, v)
+		}
+	}
+	return result
 }
