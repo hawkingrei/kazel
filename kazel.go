@@ -846,6 +846,28 @@ func depMapping(dep []string) []string {
 		"//vendor/github.com/gogo/protobuf/protoc-gen-gogo:go_default_library": "@com_github_gogo_protobuf//protoc-gen-gogo:go_default_library",
 		"//vendor/github.com/gogo/protobuf/sortkeys:go_default_library":        "@com_github_gogo_protobuf//sortkeys:go_default_library",
 		"//vendor/github.com/gogo/protobuf/types:go_default_library":           "@com_github_gogo_protobuf//types:go_default_library",
+
+		"//vendor/google.golang.org/grpc/codes:go_default_library":                "@org_golang_google_grpc//codes:go_default_library",
+		"//vendor/google.golang.org/grpc/credentials:go_default_library":          "@org_golang_google_grpc//credentials:go_default_library",
+		"//vendor/google.golang.org/grpc/metadata:go_default_library":             "@org_golang_google_grpc//metadata:go_default_library",
+		"//vendor/google.golang.org/grpc/peer:go_default_library":                 "@org_golang_google_grpc//peer:go_default_library",
+		"//vendor/google.golang.org/grpc/status:go_default_library":               "@org_golang_google_grpc//status:go_default_library",
+		"//vendor/google.golang.org/grpc/resolver:go_default_library":             "@org_golang_google_grpc//resolver:go_default_library",
+		"//vendor/google.golang.org/grpc/balancer:go_default_library":             "@org_golang_google_grpc//balancer:go_default_library",
+		"//vendor/google.golang.org/grpc/balancer/base:go_default_library":        "@org_golang_google_grpc//balancer/base:go_default_library",
+		"//vendor/google.golang.org/grpc/connectivity:go_default_library":         "@org_golang_google_grpc//connectivity:go_default_library",
+		"//vendor/google.golang.org/grpc:go_default_library":                      "@org_golang_google_grpc//:go_default_library",
+		"//vendor/google.golang.org/grpc/grpclog:go_default_library":              "@org_golang_google_grpc//grpclog:go_default_library",
+		"//vendor/google.golang.org/grpc/interop:go_default_library":              "@org_golang_google_grpc//interop:go_default_library",
+		"//vendor/google.golang.org/grpc/interop/grpc_testing:go_default_library": "@org_golang_google_grpc//interop/grpc_testing:go_default_library",
+		"//vendor/google.golang.org/grpc/stress/grpc_testing:go_default_library":  "@org_golang_google_grpc//stress/grpc_testing:go_default_library",
+		"//vendor/google.golang.org/grpc/testdata:go_default_library":             "@org_golang_google_grpc//testdata:go_default_library",
+		"//vendor/google.golang.org/grpc/interop/server:go_default_library":       "@org_golang_google_grpc//interop/server:go_default_library",
+		"//vendor/google.golang.org/grpc/interop/client:go_default_library":       "@org_golang_google_grpc//interop/client:go_default_library",
+		"//vendor/google.golang.org/grpc/interop/http2:go_default_library":        "@org_golang_google_grpc//interop/http2:go_default_library",
+		"//vendor/google.golang.org/grpc/stress/client:go_default_library":        "@org_golang_google_grpc//stress/client:go_default_library",
+
+		"//vendor/google.golang.org/genproto/googleapis/rpc/status:go_default_library": "@org_golang_google_genproto//googleapis/rpc/status:go_default_library",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]
