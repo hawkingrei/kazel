@@ -133,7 +133,7 @@ func newVendorer(root, cfgPath string, dryRun bool) (*Vendorer, error) {
 	for _, builtinSkip := range []string{
 		"^\\.git",
 		"^bazel-*",
-		"^release"
+		"^release",
 	} {
 		v.skippedPaths = append(v.skippedPaths, regexp.MustCompile(builtinSkip))
 	}
