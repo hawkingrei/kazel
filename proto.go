@@ -5,12 +5,22 @@ import (
 	"io/ioutil"
 	"log"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
 	"unicode"
 )
+
+type ProtoInfo struct {
+	src         []string
+	importPath  string
+	packageName string
+	imports     []string
+	isGogo      bool
+	hasServices bool
+}
 
 var protoRe = buildProtoRegexp()
 
@@ -21,57 +31,61 @@ const (
 	serviceSubexpIndex   = 4
 )
 
-func protoFileInfo(dir, rel, name string) fileInfo {
-	info := fileNameInfo(dir, rel, name)
-	content, err := ioutil.ReadFile(info.path)
-	if err != nil {
-		log.Printf("%s: error reading proto file: %v", info.path, err)
-		return info
-	}
-
-	for _, match := range protoRe.FindAllSubmatch(content, -1) {
-		switch {
-		case match[importSubexpIndex] != nil:
-			imp := unquoteProtoString(match[importSubexpIndex])
-			info.imports = append(info.imports, imp)
-
-		case match[packageSubexpIndex] != nil:
-			pkg := string(match[packageSubexpIndex])
-			if info.packageName == "" {
-				info.packageName = strings.Replace(pkg, ".", "_", -1)
-			}
-
-		case match[goPackageSubexpIndex] != nil:
-			gopkg := unquoteProtoString(match[goPackageSubexpIndex])
-			// If there's no / in the package option, then it's just a
-			// simple package name, not a full import path.
-			if strings.LastIndexByte(gopkg, '/') == -1 {
-				info.packageName = gopkg
-			} else {
-				if i := strings.LastIndexByte(gopkg, ';'); i != -1 {
-					info.importPath = gopkg[:i]
-					info.packageName = gopkg[i+1:]
-				} else {
-					info.importPath = gopkg
-					info.packageName = path.Base(gopkg)
-				}
-			}
-
-		case match[serviceSubexpIndex] != nil:
-			info.hasServices = true
-
-		default:
-			// Comment matched. Nothing to extract.
+func protoFileInfo(basepath string, protosrc []string) ProtoInfo {
+	//info := fileNameInfo(dir, rel, name)
+	var info ProtoInfo
+	info.src = protosrc
+	for _, srcpath := range info.src {
+		content, err := ioutil.ReadFile(filepath.Join(basepath, srcpath))
+		if err != nil {
+			log.Printf("%s: error reading proto file: %v", srcpath, err)
+			return info
 		}
-	}
-	sort.Strings(info.imports)
 
-	if info.packageName == "" {
-		stem := strings.TrimSuffix(name, ".proto")
-		fs := strings.FieldsFunc(stem, func(r rune) bool {
-			return !(unicode.IsLetter(r) || unicode.IsNumber(r) || r == '_')
-		})
-		info.packageName = strings.Join(fs, "_")
+		for _, match := range protoRe.FindAllSubmatch(content, -1) {
+			switch {
+			case match[importSubexpIndex] != nil:
+				imp := unquoteProtoString(match[importSubexpIndex])
+				info.imports = append(info.imports, imp)
+
+			case match[packageSubexpIndex] != nil:
+				pkg := string(match[packageSubexpIndex])
+				if info.packageName == "" {
+					info.packageName = strings.Replace(pkg, ".", "_", -1)
+				}
+
+			case match[goPackageSubexpIndex] != nil:
+				gopkg := unquoteProtoString(match[goPackageSubexpIndex])
+				// If there's no / in the package option, then it's just a
+				// simple package name, not a full import path.
+				if strings.LastIndexByte(gopkg, '/') == -1 {
+					info.packageName = gopkg
+				} else {
+					if i := strings.LastIndexByte(gopkg, ';'); i != -1 {
+						info.importPath = gopkg[:i]
+						info.packageName = gopkg[i+1:]
+					} else {
+						info.importPath = gopkg
+						info.packageName = path.Base(gopkg)
+					}
+				}
+
+			case match[serviceSubexpIndex] != nil:
+				info.hasServices = true
+
+			default:
+				// Comment matched. Nothing to extract.
+			}
+		}
+		sort.Strings(info.imports)
+
+		if info.packageName == "" {
+			stem := strings.TrimSuffix(filepath.Base(srcpath), ".proto")
+			fs := strings.FieldsFunc(stem, func(r rune) bool {
+				return !(unicode.IsLetter(r) || unicode.IsNumber(r) || r == '_')
+			})
+			info.packageName = strings.Join(fs, "_")
+		}
 	}
 
 	return info

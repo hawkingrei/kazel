@@ -133,7 +133,6 @@ func newVendorer(root, cfgPath string, dryRun bool) (*Vendorer, error) {
 	for _, builtinSkip := range []string{
 		"^\\.git",
 		"^bazel-*",
-		"^release",
 	} {
 		v.skippedPaths = append(v.skippedPaths, regexp.MustCompile(builtinSkip))
 	}
@@ -213,7 +212,7 @@ func (v *Vendorer) resolve(ipath string) Label {
 	}
 }
 
-func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Package) error) error {
+func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Package, proto []string) error) error {
 	skipVendor := true
 	if root == vendorPath {
 		skipVendor = false
@@ -237,6 +236,7 @@ func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Packa
 		if err != nil {
 			return err
 		}
+		protofiles := v.getAllProto(path)
 		pkg, err := v.importPkg(".", filepath.Join(v.root, path))
 		if err != nil {
 			if _, ok := err.(*build.NoGoError); err != nil && ok {
@@ -244,8 +244,7 @@ func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Packa
 			}
 			return err
 		}
-
-		return f(path, ipath, pkg)
+		return f(path, ipath, pkg, protofiles)
 	})
 }
 
@@ -258,6 +257,22 @@ func (v *Vendorer) walkRepo() error {
 	return nil
 }
 
+func (v *Vendorer) getAllProto(path string) []string {
+	var protofiles []string
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		glog.Fatalf("getallproto fail to readdir")
+	}
+	for _, f := range files {
+		if strings.Contains(f.Name(), ".proto") {
+			if f.Mode() != os.ModeDir {
+				protofiles = append(protofiles, f.Name())
+			}
+		}
+	}
+	return protofiles
+}
+
 func (v *Vendorer) updateSinglePkg(path string) error {
 	pkg, err := v.importPkg(".", "./"+path)
 	if err != nil {
@@ -266,7 +281,8 @@ func (v *Vendorer) updateSinglePkg(path string) error {
 		}
 		return err
 	}
-	return v.updatePkg(path, "", pkg)
+	protofiles := v.getAllProto(path)
+	return v.updatePkg(path, "", pkg, protofiles)
 }
 
 type ruleType int
@@ -312,7 +328,7 @@ func (rt ruleType) RuleKind() string {
 // NamerFunc is a function that returns the appropriate name for the rule for the provided RuleType.
 type NamerFunc func(ruleType) string
 
-func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package) error {
+func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package, protofile []string) error {
 
 	srcNameMap := func(srcs ...[]string) *bzl.ListExpr {
 		return asExpr(merge(srcs...)).(*bzl.ListExpr)
@@ -327,8 +343,14 @@ func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package) error {
 	cgoSrcs := srcNameMap(pkg.CgoFiles, pkg.CFiles, pkg.CXXFiles, pkg.HFiles)
 	testSrcs := srcNameMap(pkg.TestGoFiles)
 	xtestSrcs := srcNameMap(pkg.XTestGoFiles)
+	pf := protoFileInfo(path, protofile)
+	protoSrcs := srcNameMap(pf.src)
 
-	v.addRules(path, v.emit(srcs, cgoSrcs, testSrcs, xtestSrcs, pkg, func(rt ruleType) string {
+	if len(pf.src) != 0 {
+		fmt.Println("path: ", path, " protoSrcs: ", pf)
+	}
+
+	v.addRules(path, v.emit(srcs, cgoSrcs, testSrcs, xtestSrcs, protoSrcs, pkg, func(rt ruleType) string {
 		switch rt {
 		case RuleTypeGoBinary:
 			return filepath.Base(pkg.Dir)
@@ -340,6 +362,10 @@ func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package) error {
 			return "go_default_xtest"
 		case RuleTypeCGoGenrule:
 			return "cgo_codegen"
+		case RuleTypeProtoLibrary:
+			return "proto_library"
+		case RuleTypeGoProtoLibrary:
+			return "go_proto_library"
 		}
 		panic("unreachable")
 	}))
@@ -347,7 +373,7 @@ func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package) error {
 	return nil
 }
 
-func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, pkg *build.Package, namer NamerFunc) []*bzl.Rule {
+func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs, protoSrcs *bzl.ListExpr, pkg *build.Package, namer NamerFunc) []*bzl.Rule {
 	var goLibAttrs = make(Attrs)
 	var rules []*bzl.Rule
 
@@ -369,6 +395,9 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, pkg *b
 		}))
 	}
 
+	if len(protoSrcs.List) == 1 {
+		//fmt.Println("protoSrcs: ", protoSrcs.List)
+	}
 	addGoDefaultLibrary := len(cgoSrcs.List) > 0 || len(srcs.List) > 0
 	if len(cgoSrcs.List) != 0 {
 		cgoRuleAttrs := make(Attrs)
@@ -407,6 +436,10 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, pkg *b
 		rules = append(rules, newRule(RuleTypeGoXTest, namer, xtestRuleAttrs))
 	}
 
+	if len(protoSrcs.List) != 0 {
+		//fmt.Println("protoSrcs: ", protoSrcs.List)
+	}
+
 	return rules
 }
 
@@ -417,7 +450,7 @@ func (v *Vendorer) addRules(pkgPath string, rules []*bzl.Rule) {
 
 func (v *Vendorer) walkVendor() error {
 	var rules []*bzl.Rule
-	updateFunc := func(path, ipath string, pkg *build.Package) error {
+	updateFunc := func(path, ipath string, pkg *build.Package, proto []string) error {
 		srcNameMap := func(srcs ...[]string) *bzl.ListExpr {
 			return asExpr(
 				apply(
@@ -433,10 +466,10 @@ func (v *Vendorer) walkVendor() error {
 		cgoSrcs := srcNameMap(pkg.CgoFiles, pkg.CFiles, pkg.CXXFiles, pkg.HFiles)
 		testSrcs := srcNameMap(pkg.TestGoFiles)
 		xtestSrcs := srcNameMap(pkg.XTestGoFiles)
-
+		protoSrcs := srcNameMap(proto)
 		tagBase := v.resolve(ipath).tag
 
-		rules = append(rules, v.emit(srcs, cgoSrcs, testSrcs, xtestSrcs, pkg, func(rt ruleType) string {
+		rules = append(rules, v.emit(srcs, cgoSrcs, testSrcs, xtestSrcs, protoSrcs, pkg, func(rt ruleType) string {
 			switch rt {
 			case RuleTypeGoBinary:
 				return tagBase + "_bin"
@@ -833,7 +866,7 @@ func context() *build.Context {
 		GOOS:        "linux",
 		GOROOT:      build.Default.GOROOT,
 		GOPATH:      build.Default.GOPATH,
-		ReleaseTags: []string{"go1.1", "go1.2", "go1.3", "go1.4", "go1.5", "go1.6", "go1.7", "go1.8"},
+		ReleaseTags: []string{"go1.1", "go1.2", "go1.3", "go1.4", "go1.5", "go1.6", "go1.7", "go1.8", "go1.9", "go1.10"},
 		Compiler:    runtime.Compiler,
 		CgoEnabled:  true,
 	}
@@ -875,6 +908,38 @@ func depMapping(dep []string) []string {
 		"//vendor/google.golang.org/grpc/stress/client:go_default_library":        "@org_golang_google_grpc//stress/client:go_default_library",
 
 		"//vendor/google.golang.org/genproto/googleapis/rpc/status:go_default_library": "@org_golang_google_genproto//googleapis/rpc/status:go_default_library",
+	}
+	for _, v := range dep {
+		mapdep, ok := mapping[v]
+		if ok {
+			result = append(result, mapdep)
+		} else {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
+func protoMap(dep []string) []string {
+	result := []string{}
+	mapping := map[string]string{
+		"github.com/gogo/protobuf/gogoproto/gogo.proto": "@gogo_special_proto//github.com/gogo/protobuf/gogoproto",
+	}
+	for _, v := range dep {
+		mapdep, ok := mapping[v]
+		if ok {
+			result = append(result, mapdep)
+		} else {
+			result = append(result, v)
+		}
+	}
+	return result
+}
+
+func goProtoMap(dep []string) []string {
+	result := []string{}
+	mapping := map[string]string{
+		"github.com/gogo/protobuf/gogoproto/gogo.proto": "@com_github_gogo_protobuf//gogoproto:go_default_library",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]
