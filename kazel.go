@@ -344,13 +344,12 @@ func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package, protofile []str
 	testSrcs := srcNameMap(pkg.TestGoFiles)
 	xtestSrcs := srcNameMap(pkg.XTestGoFiles)
 	pf := protoFileInfo(path, protofile)
-	protoSrcs := srcNameMap(pf.src)
 
-	if len(pf.src) != 0 {
-		fmt.Println("path: ", path, " protoSrcs: ", pf)
-	}
+	//if len(pf.src) != 0 {
+	//	fmt.Println("path: ", path, " protoSrcs: ", pf)
+	//}
 
-	v.addRules(path, v.emit(srcs, cgoSrcs, testSrcs, xtestSrcs, protoSrcs, pkg, func(rt ruleType) string {
+	v.addRules(path, v.emit(path, srcs, cgoSrcs, testSrcs, xtestSrcs, pf, pkg, func(rt ruleType) string {
 		switch rt {
 		case RuleTypeGoBinary:
 			return filepath.Base(pkg.Dir)
@@ -363,9 +362,9 @@ func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package, protofile []str
 		case RuleTypeCGoGenrule:
 			return "cgo_codegen"
 		case RuleTypeProtoLibrary:
-			return "proto_library"
+			return pf.packageName + "_proto"
 		case RuleTypeGoProtoLibrary:
-			return "go_proto_library"
+			return pf.packageName + "_go_proto"
 		}
 		panic("unreachable")
 	}))
@@ -373,9 +372,30 @@ func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package, protofile []str
 	return nil
 }
 
-func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs, protoSrcs *bzl.ListExpr, pkg *build.Package, namer NamerFunc) []*bzl.Rule {
+func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, protoSrcs ProtoInfo, pkg *build.Package, namer NamerFunc) []*bzl.Rule {
 	var goLibAttrs = make(Attrs)
 	var rules []*bzl.Rule
+	embedlist := []string{}
+
+	if len(protoSrcs.src) == 1 && !strings.Contains(path, "vendor") {
+		fmt.Println("emit protoSrcs: ", protoSrcs)
+		protoRuleAttrs := make(Attrs)
+
+		protoRuleAttrs.SetList("srcs", asExpr(protoSrcs.src).(*bzl.ListExpr))
+		protoRuleAttrs.SetList("deps", asExpr(protoMap(protoSrcs.imports)).(*bzl.ListExpr))
+
+		rules = append(rules, newRule(RuleTypeProtoLibrary, namer, protoRuleAttrs))
+		goProtoRuleAttrs := make(Attrs)
+		if protoSrcs.isGogo {
+			goProtoRuleAttrs.SetList("compilers", asExpr("@io_bazel_rules_go//proto:go_proto").(*bzl.ListExpr))
+		}
+		protovalue := ":" + protoSrcs.packageName + "_proto"
+		goProtoRuleAttrs.Set("proto", asExpr(protovalue))
+		goProtoRuleAttrs.SetList("deps", asExpr(goProtoMap(protoSrcs.imports)).(*bzl.ListExpr))
+		rules = append(rules, newRule(RuleTypeGoProtoLibrary, namer, goProtoRuleAttrs))
+
+		embedlist = append(embedlist, protoSrcs.packageName+"_go_proto")
+	}
 
 	deps := v.extractDeps(depMapping(pkg.Imports))
 
@@ -395,10 +415,7 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs, protoSrcs *bzl.ListE
 		}))
 	}
 
-	if len(protoSrcs.List) == 1 {
-		//fmt.Println("protoSrcs: ", protoSrcs.List)
-	}
-	addGoDefaultLibrary := len(cgoSrcs.List) > 0 || len(srcs.List) > 0
+	addGoDefaultLibrary := len(cgoSrcs.List) > 0 || len(srcs.List) > 0 || len(protoSrcs.src) == 1
 	if len(cgoSrcs.List) != 0 {
 		cgoRuleAttrs := make(Attrs)
 
@@ -406,8 +423,8 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs, protoSrcs *bzl.ListE
 		cgoRuleAttrs.SetList("clinkopts", asExpr([]string{"-lz", "-lm", "-lpthread", "-ldl"}).(*bzl.ListExpr))
 
 		rules = append(rules, newRule(RuleTypeCGoGenrule, namer, cgoRuleAttrs))
+		embedlist = append(embedlist, ":"+namer(RuleTypeGoLibrary))
 
-		goLibAttrs.SetList("embed", asExpr([]string{":" + namer(RuleTypeGoLibrary)}).(*bzl.ListExpr))
 	}
 
 	if len(testSrcs.List) != 0 {
@@ -422,8 +439,10 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs, protoSrcs *bzl.ListE
 		}
 		rules = append(rules, newRule(RuleTypeGoTest, namer, testRuleAttrs))
 	}
-
-	if addGoDefaultLibrary {
+	if len(embedlist) > 0 {
+		goLibAttrs.SetList("embed", asExpr(embedlist).(*bzl.ListExpr))
+	}
+	if addGoDefaultLibrary || len(embedlist) > 0 {
 		rules = append(rules, newRule(RuleTypeGoLibrary, namer, goLibAttrs))
 	}
 
@@ -434,10 +453,6 @@ func (v *Vendorer) emit(srcs, cgoSrcs, testSrcs, xtestSrcs, protoSrcs *bzl.ListE
 		xtestRuleAttrs.SetList("deps", v.extractDeps(pkg.XTestImports))
 
 		rules = append(rules, newRule(RuleTypeGoXTest, namer, xtestRuleAttrs))
-	}
-
-	if len(protoSrcs.List) != 0 {
-		//fmt.Println("protoSrcs: ", protoSrcs.List)
 	}
 
 	return rules
@@ -466,10 +481,10 @@ func (v *Vendorer) walkVendor() error {
 		cgoSrcs := srcNameMap(pkg.CgoFiles, pkg.CFiles, pkg.CXXFiles, pkg.HFiles)
 		testSrcs := srcNameMap(pkg.TestGoFiles)
 		xtestSrcs := srcNameMap(pkg.XTestGoFiles)
-		protoSrcs := srcNameMap(proto)
+		pf := protoFileInfo(path, proto)
 		tagBase := v.resolve(ipath).tag
 
-		rules = append(rules, v.emit(srcs, cgoSrcs, testSrcs, xtestSrcs, protoSrcs, pkg, func(rt ruleType) string {
+		rules = append(rules, v.emit(path, srcs, cgoSrcs, testSrcs, xtestSrcs, pf, pkg, func(rt ruleType) string {
 			switch rt {
 			case RuleTypeGoBinary:
 				return tagBase + "_bin"
@@ -481,6 +496,10 @@ func (v *Vendorer) walkVendor() error {
 				return tagBase + "_xtest"
 			case RuleTypeCGoGenrule:
 				return tagBase + "_cgo"
+			case RuleTypeProtoLibrary:
+				return pf.packageName + "_proto"
+			case RuleTypeGoProtoLibrary:
+				return pf.packageName + "_go_proto"
 			}
 			panic("unreachable")
 		})...)
@@ -924,6 +943,7 @@ func protoMap(dep []string) []string {
 	result := []string{}
 	mapping := map[string]string{
 		"github.com/gogo/protobuf/gogoproto/gogo.proto": "@gogo_special_proto//github.com/gogo/protobuf/gogoproto",
+		"google/protobuf/any.proto":                     "@com_google_protobuf//:any_proto",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]
@@ -940,6 +960,7 @@ func goProtoMap(dep []string) []string {
 	result := []string{}
 	mapping := map[string]string{
 		"github.com/gogo/protobuf/gogoproto/gogo.proto": "@com_github_gogo_protobuf//gogoproto:go_default_library",
+		"google/protobuf/any.proto":                     "@com_github_golang_protobuf//ptypes/any:go_default_library",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]

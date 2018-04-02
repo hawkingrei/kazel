@@ -87,7 +87,9 @@ func protoFileInfo(basepath string, protosrc []string) ProtoInfo {
 			info.packageName = strings.Join(fs, "_")
 		}
 	}
-
+	if len(info.imports) > 1 {
+		info.imports = unique(info.imports)
+	}
 	return info
 }
 
@@ -132,4 +134,16 @@ func unquoteProtoString(q []byte) string {
 		log.Panicf("unquoting string literal %s from proto: %v", q, err)
 	}
 	return s
+}
+
+func unique(intSlice []string) []string {
+	keys := make(map[string]interface{})
+	list := []string{}
+	for _, entry := range intSlice {
+		if _, value := keys[entry]; !value {
+			keys[entry] = nil
+			list = append(list, entry)
+		}
+	}
+	return list
 }
