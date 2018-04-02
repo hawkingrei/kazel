@@ -280,6 +280,8 @@ const (
 	RuleTypeCGoGenrule
 	RuleTypeFileGroup
 	RuleTypeOpenAPILibrary
+	RuleTypeProtoLibrary
+	RuleTypeGoProtoLibrary
 )
 
 // RuleKind converts a value of the RuleType* enum into the BUILD string.
@@ -299,6 +301,10 @@ func (rt ruleType) RuleKind() string {
 		return "filegroup"
 	case RuleTypeOpenAPILibrary:
 		return "openapi_library"
+	case RuleTypeProtoLibrary:
+		return "proto_library"
+	case RuleTypeGoProtoLibrary:
+		return "go_proto_library"
 	}
 	panic("unreachable")
 }
