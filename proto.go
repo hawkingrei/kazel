@@ -31,7 +31,7 @@ const (
 	serviceSubexpIndex   = 4
 )
 
-func protoFileInfo(basepath string, protosrc []string) ProtoInfo {
+func protoFileInfo(goPrefix, basepath string, protosrc []string) ProtoInfo {
 	//info := fileNameInfo(dir, rel, name)
 	var info ProtoInfo
 	info.src = protosrc
@@ -90,6 +90,7 @@ func protoFileInfo(basepath string, protosrc []string) ProtoInfo {
 	if len(info.imports) > 1 {
 		info.imports = unique(info.imports)
 	}
+	info.importPath = filepath.Join(goPrefix, basepath)
 	return info
 }
 

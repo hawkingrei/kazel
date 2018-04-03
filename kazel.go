@@ -37,6 +37,7 @@ import (
 const (
 	vendorPath     = "vendor/"
 	automanagedTag = "automanaged"
+	manualTag      = "manual"
 )
 
 var (
@@ -343,11 +344,7 @@ func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package, protofile []str
 	cgoSrcs := srcNameMap(pkg.CgoFiles, pkg.CFiles, pkg.CXXFiles, pkg.HFiles)
 	testSrcs := srcNameMap(pkg.TestGoFiles)
 	xtestSrcs := srcNameMap(pkg.XTestGoFiles)
-	pf := protoFileInfo(path, protofile)
-
-	//if len(pf.src) != 0 {
-	//	fmt.Println("path: ", path, " protoSrcs: ", pf)
-	//}
+	pf := protoFileInfo(v.cfg.GoPrefix, path, protofile)
 
 	v.addRules(path, v.emit(path, srcs, cgoSrcs, testSrcs, xtestSrcs, pf, pkg, func(rt ruleType) string {
 		switch rt {
@@ -376,9 +373,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 	var goLibAttrs = make(Attrs)
 	var rules []*bzl.Rule
 	embedlist := []string{}
-
 	if len(protoSrcs.src) == 1 && !strings.Contains(path, "vendor") {
-		fmt.Println("emit protoSrcs: ", protoSrcs)
 		protoRuleAttrs := make(Attrs)
 
 		protoRuleAttrs.SetList("srcs", asExpr(protoSrcs.src).(*bzl.ListExpr))
@@ -391,6 +386,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		}
 		protovalue := ":" + protoSrcs.packageName + "_proto"
 		goProtoRuleAttrs.Set("proto", asExpr(protovalue))
+		goProtoRuleAttrs.Set("importpath", asExpr(protoSrcs.importPath))
 		goProtoRuleAttrs.SetList("deps", asExpr(goProtoMap(protoSrcs.imports)).(*bzl.ListExpr))
 		rules = append(rules, newRule(RuleTypeGoProtoLibrary, namer, goProtoRuleAttrs))
 
@@ -401,6 +397,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 
 	if len(srcs.List) >= 0 {
 		goLibAttrs.Set("srcs", srcs)
+		goLibAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
 	} else if len(cgoSrcs.List) == 0 {
 		return nil
 	}
@@ -481,7 +478,7 @@ func (v *Vendorer) walkVendor() error {
 		cgoSrcs := srcNameMap(pkg.CgoFiles, pkg.CFiles, pkg.CXXFiles, pkg.HFiles)
 		testSrcs := srcNameMap(pkg.TestGoFiles)
 		xtestSrcs := srcNameMap(pkg.XTestGoFiles)
-		pf := protoFileInfo(path, proto)
+		pf := protoFileInfo(v.cfg.GoPrefix, path, proto)
 		tagBase := v.resolve(ipath).tag
 
 		rules = append(rules, v.emit(path, srcs, cgoSrcs, testSrcs, xtestSrcs, pf, pkg, func(rt ruleType) string {
@@ -696,7 +693,7 @@ func ReconcileRules(pkgPath string, rules []*bzl.Rule, managedAttrs []string, dr
 		f := &bzl.File{}
 		writeHeaders(f)
 		if manageGoRules {
-			reconcileLoad(f, rules)
+			reconcileLoad(path, f, rules)
 		}
 		writeRules(f, rules)
 		return writeFile(path, f, false, dryRun)
@@ -771,13 +768,13 @@ func ReconcileRules(pkgPath string, rules []*bzl.Rule, managedAttrs []string, dr
 		f.DelRules(r.Kind(), r.Name())
 	}
 	if manageGoRules {
-		reconcileLoad(f, f.Rules(""))
+		reconcileLoad(path, f, f.Rules(""))
 	}
 
 	return writeFile(path, f, true, dryRun)
 }
 
-func reconcileLoad(f *bzl.File, rules []*bzl.Rule) {
+func reconcileLoad(path string, f *bzl.File, rules []*bzl.Rule) {
 
 	contains := func(s []string, e string) bool {
 		for _, a := range s {
@@ -807,9 +804,6 @@ func reconcileLoad(f *bzl.File, rules []*bzl.Rule) {
 			}
 		}
 	}
-
-	usedRule := []string{"@io_bazel_rules_go//go:def.bzl", "@bazel_gazelle//:def.bzl", "@io_bazel_rules_go//proto:def.bzl"}
-
 	usedRuleKindsList := []string{}
 	for k := range usedRuleKindsMap {
 		usedRuleKindsList = append(usedRuleKindsList, k)
@@ -821,7 +815,7 @@ func reconcileLoad(f *bzl.File, rules []*bzl.Rule) {
 		if len(args) == 0 {
 			continue
 		}
-		if !contains(usedRule, args[0]) {
+		if !contains(usedRuleKindsList, args[0]) {
 			continue
 		}
 		if len(usedRuleKindsMap[args[0]]) == 0 {
@@ -833,6 +827,17 @@ func reconcileLoad(f *bzl.File, rules []*bzl.Rule) {
 		r.Call.List = asExpr(append(
 			[]string{args[0]}, usedRuleKindsMap[args[0]]...,
 		)).(*bzl.ListExpr).List
+		delete(usedRuleKindsMap, args[0])
+	}
+	for k, v := range usedRuleKindsMap {
+		rule :=
+			&bzl.CallExpr{
+				X: &bzl.LiteralExpr{Token: "load"},
+			}
+		rule.List = asExpr(append(
+			[]string{k}, v...,
+		)).(*bzl.ListExpr).List
+		f.Stmt = append([]bzl.Expr{rule}, f.Stmt...)
 	}
 }
 
