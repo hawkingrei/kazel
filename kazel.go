@@ -397,6 +397,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 
 	if len(srcs.List) >= 0 {
 		goLibAttrs.Set("srcs", srcs)
+		goLibAttrs.Set("importpath", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
 		goLibAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
 	} else if len(cgoSrcs.List) == 0 {
 		return nil
