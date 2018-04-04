@@ -381,8 +381,14 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 
 		rules = append(rules, newRule(RuleTypeProtoLibrary, namer, protoRuleAttrs))
 		goProtoRuleAttrs := make(Attrs)
+		fmt.Println("path: ", path, " protoSrcs:", protoSrcs)
 		if protoSrcs.isGogo {
-			goProtoRuleAttrs.SetList("compilers", asExpr("@io_bazel_rules_go//proto:go_proto").(*bzl.ListExpr))
+			fmt.Println("path: ", path, " add gogo")
+			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_proto"}).(*bzl.ListExpr))
+		}
+		if protoSrcs.hasServices {
+			fmt.Println("path: ", path, " add grpc")
+			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_grpc"}).(*bzl.ListExpr))
 		}
 		protovalue := ":" + protoSrcs.packageName + "_proto"
 		goProtoRuleAttrs.Set("proto", asExpr(protovalue))
@@ -397,7 +403,12 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 
 	if len(srcs.List) >= 0 {
 		goLibAttrs.Set("srcs", srcs)
-		goLibAttrs.Set("importpath", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
+		if strings.Contains(path, "vendor") {
+			goLibAttrs.Set("importmap", asExpr(path))
+			goLibAttrs.Set("importpath", asExpr(strings.Replace("path", "vendor/", "", -1)))
+		} else {
+			goLibAttrs.Set("importpath", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
+		}
 		goLibAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
 	} else if len(cgoSrcs.List) == 0 {
 		return nil
@@ -862,6 +873,9 @@ func writeFile(path string, f *bzl.File, exists, dryRun bool) (bool, error) {
 	var info bzl.RewriteInfo
 	bzl.Rewrite(f, &info)
 	out := bzl.Format(f)
+	if strings.Contains(path, "vendor") {
+		return false, nil
+	}
 	if exists {
 		orig, err := ioutil.ReadFile(path)
 		if err != nil {

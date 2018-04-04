@@ -90,6 +90,11 @@ func protoFileInfo(goPrefix, basepath string, protosrc []string) ProtoInfo {
 	if len(info.imports) > 1 {
 		info.imports = unique(info.imports)
 	}
+	for _, v := range info.imports {
+		if strings.Contains(v, "gogo") {
+			info.isGogo = true
+		}
+	}
 	info.importPath = filepath.Join(goPrefix, basepath)
 	return info
 }
