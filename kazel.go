@@ -400,9 +400,14 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 	}
 
 	deps := v.extractDeps(depMapping(pkg.Imports))
-
 	if len(srcs.List) >= 0 {
-		goLibAttrs.Set("srcs", srcs)
+		if len(cgoSrcs.List) != 0 {
+			goLibAttrs.SetList("srcs", &bzl.ListExpr{List: addExpr(srcs.List, cgoSrcs.List)})
+			goLibAttrs.SetList("clinkopts", asExpr([]string{"-lz", "-lm", "-lpthread", "-ldl"}).(*bzl.ListExpr))
+			goLibAttrs.Set("cgo", &bzl.LiteralExpr{Token: "True"})
+		} else {
+			goLibAttrs.Set("srcs", srcs)
+		}
 		if strings.Contains(path, "vendor") {
 			goLibAttrs.Set("importmap", asExpr(path))
 			goLibAttrs.Set("importpath", asExpr(strings.Replace("path", "vendor/", "", -1)))
@@ -425,16 +430,6 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 	}
 
 	addGoDefaultLibrary := len(cgoSrcs.List) > 0 || len(srcs.List) > 0 || len(protoSrcs.src) == 1
-	if len(cgoSrcs.List) != 0 {
-		cgoRuleAttrs := make(Attrs)
-
-		cgoRuleAttrs.SetList("srcs", cgoSrcs)
-		cgoRuleAttrs.SetList("clinkopts", asExpr([]string{"-lz", "-lm", "-lpthread", "-ldl"}).(*bzl.ListExpr))
-
-		rules = append(rules, newRule(RuleTypeCGoGenrule, namer, cgoRuleAttrs))
-		embedlist = append(embedlist, ":"+namer(RuleTypeGoLibrary))
-
-	}
 
 	if len(testSrcs.List) != 0 {
 		testRuleAttrs := make(Attrs)
@@ -991,4 +986,8 @@ func goProtoMap(dep []string) []string {
 		}
 	}
 	return result
+}
+
+func addExpr(x []bzl.Expr, y []bzl.Expr) []bzl.Expr {
+	return append(x, y...)
 }
