@@ -381,13 +381,10 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 
 		rules = append(rules, newRule(RuleTypeProtoLibrary, namer, protoRuleAttrs))
 		goProtoRuleAttrs := make(Attrs)
-		fmt.Println("path: ", path, " protoSrcs:", protoSrcs)
 		if protoSrcs.isGogo {
-			fmt.Println("path: ", path, " add gogo")
 			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_proto"}).(*bzl.ListExpr))
 		}
 		if protoSrcs.hasServices {
-			fmt.Println("path: ", path, " add grpc")
 			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_grpc"}).(*bzl.ListExpr))
 		}
 		protovalue := ":" + protoSrcs.packageName + "_proto"
@@ -401,9 +398,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 
 	deps := v.extractDeps(depMapping(pkg.Imports))
 	if len(srcs.List) >= 0 {
-
 		if len(cgoSrcs.List) != 0 {
-			fmt.Println("do cgo")
 			goLibAttrs.SetList("srcs", &bzl.ListExpr{List: addExpr(srcs.List, cgoSrcs.List)})
 			goLibAttrs.SetList("clinkopts", asExpr([]string{"-lz", "-lm", "-lpthread", "-ldl"}).(*bzl.ListExpr))
 			goLibAttrs.Set("cgo", &bzl.LiteralExpr{Token: "True"})
