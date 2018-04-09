@@ -401,7 +401,9 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 
 	deps := v.extractDeps(depMapping(pkg.Imports))
 	if len(srcs.List) >= 0 {
+
 		if len(cgoSrcs.List) != 0 {
+			fmt.Println("do cgo")
 			goLibAttrs.SetList("srcs", &bzl.ListExpr{List: addExpr(srcs.List, cgoSrcs.List)})
 			goLibAttrs.SetList("clinkopts", asExpr([]string{"-lz", "-lm", "-lpthread", "-ldl"}).(*bzl.ListExpr))
 			goLibAttrs.Set("cgo", &bzl.LiteralExpr{Token: "True"})
@@ -741,9 +743,11 @@ func ReconcileRules(pkgPath string, rules []*bzl.Rule, managedAttrs []string, dr
 		oldRules[r.Name()] = r
 	}
 	if len(goProtoLibrary) > 0 && goProtoLibrary != nil {
-		r := oldRules["go_default_library"]
-		r.SetAttr("embed", asExpr(goProtoLibrary))
-		oldRules["go_default_library"] = r
+		r, ok := oldRules["go_default_library"]
+		if ok {
+			r.SetAttr("embed", asExpr(goProtoLibrary))
+			oldRules["go_default_library"] = r
+		}
 	}
 
 	for _, r := range rules {
