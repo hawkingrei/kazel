@@ -121,7 +121,7 @@ func newVendorer(root, cfgPath string, dryRun bool) (*Vendorer, error) {
 		icache:       map[icacheKey]icacheVal{},
 		cfg:          cfg,
 		newRules:     make(map[string][]*bzl.Rule),
-		managedAttrs: []string{"srcs", "deps"},
+		managedAttrs: []string{"srcs", "deps", "importpath", "importmap"},
 	}
 
 	for _, sp := range cfg.SkippedPaths {
@@ -390,6 +390,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		protovalue := ":" + protoSrcs.packageName + "_proto"
 		goProtoRuleAttrs.Set("proto", asExpr(protovalue))
 		goProtoRuleAttrs.Set("importpath", asExpr(protoSrcs.importPath))
+		goProtoRuleAttrs.Set("importmap", asExpr(protoSrcs.importPath))
 		goProtoRuleAttrs.SetList("deps", asExpr(goProtoMap(protoSrcs.imports)).(*bzl.ListExpr))
 		rules = append(rules, newRule(RuleTypeGoProtoLibrary, namer, goProtoRuleAttrs))
 
@@ -409,6 +410,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 			goLibAttrs.Set("importmap", asExpr(path))
 			goLibAttrs.Set("importpath", asExpr(strings.Replace("path", "vendor/", "", -1)))
 		} else {
+			goLibAttrs.Set("importmap", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
 			goLibAttrs.Set("importpath", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
 		}
 		goLibAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
@@ -433,7 +435,8 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 
 		testRuleAttrs.SetList("srcs", testSrcs)
 		testRuleAttrs.SetList("deps", v.extractDeps(depMapping(pkg.TestImports)))
-
+		//testRuleAttrs.Set("importmap", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
+		//testRuleAttrs.Set("importpath", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
 		if addGoDefaultLibrary {
 			testRuleAttrs.SetList("embed", asExpr([]string{":" + namer(RuleTypeGoLibrary)}).(*bzl.ListExpr))
 
