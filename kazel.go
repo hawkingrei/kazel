@@ -878,9 +878,9 @@ func writeFile(path string, f *bzl.File, exists, dryRun bool) (bool, error) {
 	var info bzl.RewriteInfo
 	bzl.Rewrite(f, &info)
 	out := bzl.Format(f)
-	//if strings.Contains(path, "vendor") {
-	//	return false, nil
-	//}
+	if strings.Contains(path, "vendor") {
+		return false, nil
+	}
 	if exists {
 		orig, err := ioutil.ReadFile(path)
 		if err != nil {
