@@ -720,7 +720,15 @@ func ReconcileRules(pkgPath string, rules []*bzl.Rule, managedAttrs []string, dr
 	}
 	oldRules := make(map[string]*bzl.Rule)
 	for _, r := range f.Rules("") {
+		if r.Kind() == "proto_library" {
+			if r.Attr("tags") == nil {
+				r.SetAttr("tags", asExpr([]string{automanagedTag}))
+			}
+		}
 		if r.Kind() == "go_proto_library" {
+			if r.Attr("tags") == nil {
+				r.SetAttr("tags", asExpr([]string{automanagedTag}))
+			}
 			goProtoLibrary = append(goProtoLibrary, ":"+r.Name())
 		}
 		if (r.Kind() == "go_library" || r.Kind() == "go_test") && (len(rules) == 3 || len(rules) == 4) && !strings.Contains(pkgPath, "vendor") {
@@ -916,7 +924,7 @@ func depMapping(dep []string) []string {
 	result := []string{}
 	mapping := map[string]string{
 		"//vendor/github.com/golang/protobuf/proto:go_default_library":         "@com_github_golang_protobuf//proto:go_default_library",
-		"//vendor/github.com/golang/protobuf/ptypes/any:go_default_library":    "@com_github_golang_protobuf//ptypes/any:go_default_library",
+		"//vendor/github.com/golang/protobuf/ptypes/any:go_default_library":    "@io_bazel_rules_go//proto/wkt:any_go_proto",
 		"//vendor/github.com/gogo/protobuf/gogoproto:go_default_library":       "@com_github_gogo_protobuf//gogoproto:go_default_library",
 		"//vendor/github.com/gogo/protobuf/proto:go_default_library":           "@com_github_gogo_protobuf//proto:go_default_library",
 		"//vendor/github.com/gogo/protobuf/protoc-gen-gogo:go_default_library": "@com_github_gogo_protobuf//protoc-gen-gogo:go_default_library",
@@ -976,8 +984,9 @@ func protoMap(dep []string) []string {
 func goProtoMap(dep []string) []string {
 	result := []string{}
 	mapping := map[string]string{
-		"github.com/gogo/protobuf/gogoproto/gogo.proto": "@com_github_gogo_protobuf//gogoproto:go_default_library",
-		"google/protobuf/any.proto":                     "@com_github_golang_protobuf//ptypes/any:go_default_library",
+		"github.com/gogo/protobuf/gogoproto/gogo.proto":              "@com_github_gogo_protobuf//gogoproto:go_default_library",
+		"@com_github_golang_protobuf//ptypes/any:go_default_library": "@io_bazel_rules_go//proto/wkt:any_go_proto",
+		"google/protobuf/any.proto":                                  "@io_bazel_rules_go//proto/wkt:any_go_proto",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]
