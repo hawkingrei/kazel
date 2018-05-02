@@ -1,0 +1,21 @@
+{
+	"ImportPath": "github.com/hawkingrei/kazel",
+	"GoVersion": "go1.10",
+	"GodepVersion": "v80",
+	"Deps": [
+		{
+			"ImportPath": "github.com/bazelbuild/buildtools/build",
+			"Comment": "0.6.0-94-g80c7f0d",
+			"Rev": "80c7f0d45d7e40fa1f7362852697d4a03df557b3"
+		},
+		{
+			"ImportPath": "github.com/bazelbuild/buildtools/tables",
+			"Comment": "0.6.0-94-g80c7f0d",
+			"Rev": "80c7f0d45d7e40fa1f7362852697d4a03df557b3"
+		},
+		{
+			"ImportPath": "github.com/golang/glog",
+			"Rev": "23def4e6c14b4da8ac2ed8007337bc5eb5007998"
+		}
+	]
+}
