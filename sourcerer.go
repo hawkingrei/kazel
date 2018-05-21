@@ -87,7 +87,7 @@ func (v *Vendorer) walkSource(pkgPath string) ([]string, error) {
 
 	pkgSrcsExpr := &bzl.LiteralExpr{Token: `glob(["**"])`}
 	if pkgPath == "." {
-		pkgSrcsExpr = &bzl.LiteralExpr{Token: `glob(["**"], exclude=["bazel-*/**", ".git/**"])`}
+		pkgSrcsExpr = &bzl.LiteralExpr{Token: `glob(["**"], exclude=["bazel-*/**", ".git/**", ".idea/**"])`}
 	}
 
 	v.addRules(pkgPath, []*bzl.Rule{
