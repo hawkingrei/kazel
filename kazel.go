@@ -46,6 +46,7 @@ var (
 	printDiff = flag.Bool("print-diff", false, "print diff to stdout")
 	validate  = flag.Bool("validate", false, "run in dry mode and exit nonzero if any BUILD files need to be updated")
 	cfgPath   = flag.String("cfg-path", ".kazelcfg.json", "path to kazel config (relative paths interpreted relative to -repo.")
+	iswrote   = false
 )
 
 func main() {
@@ -85,6 +86,10 @@ func main() {
 	}
 	if *validate && written > 0 {
 		fmt.Fprintf(os.Stderr, "\n%d BUILD files not up-to-date.\n", written)
+		os.Exit(1)
+	}
+	if iswrote {
+		fmt.Fprintf(os.Stderr, "\nPlease re-run git-add\n")
 		os.Exit(1)
 	}
 }
@@ -900,6 +905,7 @@ func writeFile(path string, f *bzl.File, exists, dryRun bool) (bool, error) {
 	werr := ioutil.WriteFile(path, out, 0644)
 	if werr == nil {
 		fmt.Fprintf(os.Stderr, "wrote %q\n", path)
+		iswrote = true
 	}
 	return werr == nil, werr
 }
