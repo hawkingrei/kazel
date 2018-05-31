@@ -956,6 +956,7 @@ func depMapping(dep []string) []string {
 		"//vendor/google.golang.org/grpc/interop/client:go_default_library":       "@org_golang_google_grpc//interop/client:go_default_library",
 		"//vendor/google.golang.org/grpc/interop/http2:go_default_library":        "@org_golang_google_grpc//interop/http2:go_default_library",
 		"//vendor/google.golang.org/grpc/stress/client:go_default_library":        "@org_golang_google_grpc//stress/client:go_default_library",
+		"//vendor/google.golang.org/grpc/keepalive:go_default_library":            "@org_golang_google_grpc//keepalive:go_default_library",
 
 		"//vendor/google.golang.org/genproto/googleapis/rpc/status:go_default_library": "@org_golang_google_genproto//googleapis/rpc/status:go_default_library",
 	}
