@@ -412,10 +412,8 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 			goLibAttrs.Set("srcs", srcs)
 		}
 		if strings.Contains(path, "vendor") {
-			goLibAttrs.Set("importmap", asExpr(path))
 			goLibAttrs.Set("importpath", asExpr(strings.Replace("path", "vendor/", "", -1)))
 		} else {
-			goLibAttrs.Set("importmap", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
 			goLibAttrs.Set("importpath", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
 		}
 		goLibAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
