@@ -126,7 +126,7 @@ func newVendorer(root, cfgPath string, dryRun bool) (*Vendorer, error) {
 		icache:       map[icacheKey]icacheVal{},
 		cfg:          cfg,
 		newRules:     make(map[string][]*bzl.Rule),
-		managedAttrs: []string{"srcs", "deps", "importpath", "importmap"},
+		managedAttrs: []string{"srcs", "deps", "importpath", "importmap", "data"},
 	}
 
 	for _, sp := range cfg.SkippedPaths {
@@ -218,7 +218,7 @@ func (v *Vendorer) resolve(ipath string) Label {
 	}
 }
 
-func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Package, proto []string) error) error {
+func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Package, conffile, proto []string) error) error {
 	skipVendor := true
 	if root == vendorPath {
 		skipVendor = false
@@ -243,6 +243,7 @@ func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Packa
 			return err
 		}
 		protofiles := v.getAllProto(path)
+		conffiles := v.getAllConf(path)
 		pkg, err := v.importPkg(".", filepath.Join(v.root, path))
 		if err != nil {
 			if _, ok := err.(*build.NoGoError); err != nil && ok {
@@ -250,7 +251,7 @@ func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Packa
 			}
 			return err
 		}
-		return f(path, ipath, pkg, protofiles)
+		return f(path, ipath, pkg, conffiles, protofiles)
 	})
 }
 
@@ -279,6 +280,22 @@ func (v *Vendorer) getAllProto(path string) []string {
 	return protofiles
 }
 
+func (v *Vendorer) getAllConf(path string) []string {
+	var conffiles []string
+	files, err := ioutil.ReadDir(path)
+	if err != nil {
+		glog.Fatalf("getallconf fail to readdir")
+	}
+	for _, f := range files {
+		if strings.Contains(f.Name(), ".toml") || strings.Contains(f.Name(), ".yaml") {
+			if f.Mode() != os.ModeDir {
+				conffiles = append(conffiles, f.Name())
+			}
+		}
+	}
+	return conffiles
+}
+
 func (v *Vendorer) updateSinglePkg(path string) error {
 	pkg, err := v.importPkg(".", "./"+path)
 	if err != nil {
@@ -288,7 +305,8 @@ func (v *Vendorer) updateSinglePkg(path string) error {
 		return err
 	}
 	protofiles := v.getAllProto(path)
-	return v.updatePkg(path, "", pkg, protofiles)
+	conffiles := v.getAllConf(path)
+	return v.updatePkg(path, "", pkg, conffiles, protofiles)
 }
 
 type ruleType int
@@ -334,7 +352,7 @@ func (rt ruleType) RuleKind() string {
 // NamerFunc is a function that returns the appropriate name for the rule for the provided RuleType.
 type NamerFunc func(ruleType) string
 
-func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package, protofile []string) error {
+func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package, conffile, protofile []string) error {
 
 	srcNameMap := func(srcs ...[]string) *bzl.ListExpr {
 		return asExpr(merge(srcs...)).(*bzl.ListExpr)
@@ -351,7 +369,7 @@ func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package, protofile []str
 	xtestSrcs := srcNameMap(pkg.XTestGoFiles)
 	pf := protoFileInfo(v.cfg.GoPrefix, path, protofile)
 
-	v.addRules(path, v.emit(path, srcs, cgoSrcs, testSrcs, xtestSrcs, pf, pkg, func(rt ruleType) string {
+	v.addRules(path, v.emit(path, srcs, cgoSrcs, testSrcs, xtestSrcs, pf, pkg, conffile, func(rt ruleType) string {
 		switch rt {
 		case RuleTypeGoBinary:
 			return filepath.Base(pkg.Dir)
@@ -374,7 +392,7 @@ func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package, protofile []str
 	return nil
 }
 
-func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, protoSrcs ProtoInfo, pkg *build.Package, namer NamerFunc) []*bzl.Rule {
+func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.ListExpr, protoSrcs ProtoInfo, pkg *build.Package, conffile []string, namer NamerFunc) []*bzl.Rule {
 	var goLibAttrs = make(Attrs)
 	var rules []*bzl.Rule
 	embedlist := []string{}
@@ -417,10 +435,13 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 			goLibAttrs.Set("importpath", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
 		}
 		goLibAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
+
 	} else if len(cgoSrcs.List) == 0 {
 		return nil
 	}
-
+	if len(conffile) > 0 {
+		goLibAttrs.SetList("data", asExpr(conffile).(*bzl.ListExpr))
+	}
 	if len(deps.List) > 0 {
 		goLibAttrs.SetList("deps", deps)
 	}
@@ -431,7 +452,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		}))
 	}
 
-	addGoDefaultLibrary := len(cgoSrcs.List) > 0 || len(srcs.List) > 0 || len(protoSrcs.src) == 1
+	addGoDefaultLibrary := len(cgoSrcs.List) > 0 || len(srcs.List) > 0 || len(protoSrcs.src) == 1 || len(conffile) > 0
 
 	if len(testSrcs.List) != 0 {
 		testRuleAttrs := make(Attrs)
@@ -472,7 +493,7 @@ func (v *Vendorer) addRules(pkgPath string, rules []*bzl.Rule) {
 
 func (v *Vendorer) walkVendor() error {
 	var rules []*bzl.Rule
-	updateFunc := func(path, ipath string, pkg *build.Package, proto []string) error {
+	updateFunc := func(path, ipath string, pkg *build.Package, conffile, proto []string) error {
 		srcNameMap := func(srcs ...[]string) *bzl.ListExpr {
 			return asExpr(
 				apply(
@@ -491,7 +512,7 @@ func (v *Vendorer) walkVendor() error {
 		pf := protoFileInfo(v.cfg.GoPrefix, path, proto)
 		tagBase := v.resolve(ipath).tag
 
-		rules = append(rules, v.emit(path, srcs, cgoSrcs, testSrcs, xtestSrcs, pf, pkg, func(rt ruleType) string {
+		rules = append(rules, v.emit(path, srcs, cgoSrcs, testSrcs, xtestSrcs, pf, pkg, []string{}, func(rt ruleType) string {
 			switch rt {
 			case RuleTypeGoBinary:
 				return tagBase + "_bin"
