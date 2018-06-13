@@ -126,7 +126,7 @@ func newVendorer(root, cfgPath string, dryRun bool) (*Vendorer, error) {
 		icache:       map[icacheKey]icacheVal{},
 		cfg:          cfg,
 		newRules:     make(map[string][]*bzl.Rule),
-		managedAttrs: []string{"srcs", "deps", "importpath", "importmap", "data"},
+		managedAttrs: []string{"srcs", "deps", "importpath", "data"},
 	}
 
 	for _, sp := range cfg.SkippedPaths {
@@ -413,7 +413,6 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		protovalue := ":" + protoSrcs.packageName + "_proto"
 		goProtoRuleAttrs.Set("proto", asExpr(protovalue))
 		goProtoRuleAttrs.Set("importpath", asExpr(protoSrcs.importPath))
-		goProtoRuleAttrs.Set("importmap", asExpr(protoSrcs.importPath))
 		goProtoRuleAttrs.SetList("deps", asExpr(goProtoMap(protoSrcs.imports)).(*bzl.ListExpr))
 		rules = append(rules, newRule(RuleTypeGoProtoLibrary, namer, goProtoRuleAttrs))
 
