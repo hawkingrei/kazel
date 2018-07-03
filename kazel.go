@@ -405,10 +405,10 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		rules = append(rules, newRule(RuleTypeProtoLibrary, namer, protoRuleAttrs))
 		goProtoRuleAttrs := make(Attrs)
 		if protoSrcs.isGogo {
-			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_proto"}).(*bzl.ListExpr))
+			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gofast_proto"}).(*bzl.ListExpr))
 		}
 		if protoSrcs.hasServices {
-			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_grpc"}).(*bzl.ListExpr))
+			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gofast_grpc"}).(*bzl.ListExpr))
 		}
 		protovalue := ":" + protoSrcs.packageName + "_proto"
 		goProtoRuleAttrs.Set("proto", asExpr(protovalue))
