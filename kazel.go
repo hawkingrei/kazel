@@ -406,6 +406,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		goProtoRuleAttrs := make(Attrs)
 		if protoSrcs.isGogo {
 			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gofast_proto"}).(*bzl.ListExpr))
+			protoSrcs.imports = append(protoSrcs.imports, "@com_github_golang_protobuf//proto:go_default_library")
 		}
 		if protoSrcs.hasServices {
 			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gofast_grpc"}).(*bzl.ListExpr))
