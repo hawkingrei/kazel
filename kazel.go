@@ -405,12 +405,20 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		rules = append(rules, newRule(RuleTypeProtoLibrary, namer, protoRuleAttrs))
 		goProtoRuleAttrs := make(Attrs)
 		if protoSrcs.isGogo {
-			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gofast_proto"}).(*bzl.ListExpr))
+			if protoSrcs.hasServices {
+				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gogo_grpc"}).(*bzl.ListExpr))
+			} else {
+				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gogo_proto"}).(*bzl.ListExpr))
+			}
+		} else {
+			if protoSrcs.hasServices {
+				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gofast_grpc"}).(*bzl.ListExpr))
+			} else {
+				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gofast_proto"}).(*bzl.ListExpr))
+			}
 			protoSrcs.imports = append(protoSrcs.imports, "@com_github_golang_protobuf//proto:go_default_library")
 		}
-		if protoSrcs.hasServices {
-			goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gofast_grpc"}).(*bzl.ListExpr))
-		}
+
 		protovalue := ":" + protoSrcs.packageName + "_proto"
 		goProtoRuleAttrs.Set("proto", asExpr(protovalue))
 		goProtoRuleAttrs.Set("importpath", asExpr(protoSrcs.importPath))
