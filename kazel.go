@@ -410,6 +410,12 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 			} else {
 				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gogofast_proto"}).(*bzl.ListExpr))
 			}
+		} else {
+			if protoSrcs.hasServices {
+				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_grpc"}).(*bzl.ListExpr))
+			} else {
+				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_proto"}).(*bzl.ListExpr))
+			}
 		}
 
 		protovalue := ":" + protoSrcs.packageName + "_proto"
