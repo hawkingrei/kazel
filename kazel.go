@@ -126,7 +126,7 @@ func newVendorer(root, cfgPath string, dryRun bool) (*Vendorer, error) {
 		icache:       map[icacheKey]icacheVal{},
 		cfg:          cfg,
 		newRules:     make(map[string][]*bzl.Rule),
-		managedAttrs: []string{"srcs", "deps", "importpath", "data", "compilers"},
+		managedAttrs: []string{"srcs", "deps", "importpath", "data", "compilers", "rundir"},
 	}
 
 	for _, sp := range cfg.SkippedPaths {
@@ -466,6 +466,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 
 		testRuleAttrs.SetList("srcs", testSrcs)
 		testRuleAttrs.SetList("deps", v.extractDeps(depMapping(pkg.TestImports)))
+		testRuleAttrs.Set("rundir", asExpr("."))
 		//testRuleAttrs.Set("importmap", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
 		//testRuleAttrs.Set("importpath", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
 		if addGoDefaultLibrary {
