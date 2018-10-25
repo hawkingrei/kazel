@@ -396,7 +396,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 	var goLibAttrs = make(Attrs)
 	var rules []*bzl.Rule
 	embedlist := []string{}
-	if len(protoSrcs.src) == 1 && !strings.Contains(path, "vendor") {
+	if !strings.Contains(path, "vendor") {
 		protoRuleAttrs := make(Attrs)
 
 		protoRuleAttrs.SetList("srcs", asExpr(protoSrcs.src).(*bzl.ListExpr))
