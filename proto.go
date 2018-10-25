@@ -29,6 +29,7 @@ const (
 	packageSubexpIndex   = 2
 	goPackageSubexpIndex = 3
 	serviceSubexpIndex   = 4
+	goCommonTimeIndex    = 5
 )
 
 func protoFileInfo(goPrefix, basepath string, protosrc []string) ProtoInfo {
@@ -72,10 +73,13 @@ func protoFileInfo(goPrefix, basepath string, protosrc []string) ProtoInfo {
 
 			case match[serviceSubexpIndex] != nil:
 				info.hasServices = true
-
 			default:
 				// Comment matched. Nothing to extract.
 			}
+		}
+		rtime := regexp.MustCompile("go-common/library/time.Time")
+		if rtime.FindAllSubmatchIndex(content, -1) != nil {
+			info.imports = append(info.imports, "//library/time:go_default_library")
 		}
 		sort.Strings(info.imports)
 
