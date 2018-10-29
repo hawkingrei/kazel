@@ -396,7 +396,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 	var goLibAttrs = make(Attrs)
 	var rules []*bzl.Rule
 	embedlist := []string{}
-	if len(protoSrcs.src) == 1 && !strings.Contains(path, "vendor") {
+	if len(protoSrcs.src) > 0 && !strings.Contains(path, "vendor") {
 		protoRuleAttrs := make(Attrs)
 
 		protoRuleAttrs.SetList("srcs", asExpr(protoSrcs.src).(*bzl.ListExpr))
@@ -1007,12 +1007,19 @@ func depMapping(dep []string) []string {
 
 func protoMap(dep []string) []string {
 	result := []string{}
+
+	removeMap := map[string]struct{}{
+		"//library/time:go_default_library": struct{}{},
+	}
 	mapping := map[string]string{
 		"github.com/gogo/protobuf/gogoproto/gogo.proto": "@gogo_special_proto//github.com/gogo/protobuf/gogoproto",
 		"google/protobuf/any.proto":                     "@com_google_protobuf//:any_proto",
 		"google/api/annotations.proto":                  "@go_googleapis//google/api:annotations_proto",
 	}
 	for _, v := range dep {
+		if _, ok := removeMap[v]; ok {
+			continue
+		}
 		mapdep, ok := mapping[v]
 		if ok {
 			result = append(result, mapdep)
