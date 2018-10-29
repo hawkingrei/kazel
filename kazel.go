@@ -1006,7 +1006,6 @@ func depMapping(dep []string) []string {
 }
 
 func protoMap(path string, dep []string) []string {
-	fmt.Println(path)
 	result := []string{}
 
 	removeMap := map[string]struct{}{
@@ -1034,7 +1033,6 @@ func protoMap(path string, dep []string) []string {
 }
 
 func goProtoMap(path string, dep []string) []string {
-	fmt.Println(path)
 	result := []string{}
 	mapping := map[string]string{
 		"github.com/gogo/protobuf/gogoproto/gogo.proto":              "@com_github_gogo_protobuf//gogoproto:go_default_library",
