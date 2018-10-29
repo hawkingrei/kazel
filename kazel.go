@@ -400,7 +400,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		protoRuleAttrs := make(Attrs)
 
 		protoRuleAttrs.SetList("srcs", asExpr(protoSrcs.src).(*bzl.ListExpr))
-		protoRuleAttrs.SetList("deps", asExpr(protoMap(protoSrcs.imports)).(*bzl.ListExpr))
+		protoRuleAttrs.SetList("deps", asExpr(protoMap(path, protoSrcs.imports)).(*bzl.ListExpr))
 
 		rules = append(rules, newRule(RuleTypeProtoLibrary, namer, protoRuleAttrs))
 		goProtoRuleAttrs := make(Attrs)
@@ -421,7 +421,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		protovalue := ":" + protoSrcs.packageName + "_proto"
 		goProtoRuleAttrs.Set("proto", asExpr(protovalue))
 		goProtoRuleAttrs.Set("importpath", asExpr(protoSrcs.importPath))
-		goProtoRuleAttrs.SetList("deps", asExpr(goProtoMap(protoSrcs.imports)).(*bzl.ListExpr))
+		goProtoRuleAttrs.SetList("deps", asExpr(goProtoMap(path, protoSrcs.imports)).(*bzl.ListExpr))
 		rules = append(rules, newRule(RuleTypeGoProtoLibrary, namer, goProtoRuleAttrs))
 
 		embedlist = append(embedlist, protoSrcs.packageName+"_go_proto")
@@ -1005,7 +1005,8 @@ func depMapping(dep []string) []string {
 	return result
 }
 
-func protoMap(dep []string) []string {
+func protoMap(path string, dep []string) []string {
+	fmt.Println(path)
 	result := []string{}
 
 	removeMap := map[string]struct{}{
@@ -1024,13 +1025,16 @@ func protoMap(dep []string) []string {
 		if ok {
 			result = append(result, mapdep)
 		} else {
-			result = append(result, v)
+			if custom := customgoproto(path, v); custom != "" {
+				result = append(result, custom)
+			}
 		}
 	}
 	return result
 }
 
-func goProtoMap(dep []string) []string {
+func goProtoMap(path string, dep []string) []string {
+	fmt.Println(path)
 	result := []string{}
 	mapping := map[string]string{
 		"github.com/gogo/protobuf/gogoproto/gogo.proto":              "@com_github_gogo_protobuf//gogoproto:go_default_library",
@@ -1043,7 +1047,9 @@ func goProtoMap(dep []string) []string {
 		if ok {
 			result = append(result, mapdep)
 		} else {
-			result = append(result, v)
+			if custom := customgoprotolibrary(path, v); custom != "" {
+				result = append(result, custom)
+			}
 		}
 	}
 	return result
@@ -1051,4 +1057,32 @@ func goProtoMap(dep []string) []string {
 
 func addExpr(x []bzl.Expr, y []bzl.Expr) []bzl.Expr {
 	return append(x, y...)
+}
+
+func customgoprotolibrary(path, dep string) string {
+	if strings.HasPrefix(dep, "library") || strings.HasPrefix(dep, "app") && strings.HasSuffix(dep, ".proto") {
+		deplist := strings.Split(dep, "/")
+		last := deplist[:len(deplist)-1]
+		if strings.Join(last, "/") == path {
+			return ""
+		}
+		last[len(last)-1] = last[len(last)-1] + ":" + last[len(last)-1] + "_go_proto"
+		dep = strings.Join(last, "/")
+		return "//" + dep
+	}
+	return dep
+}
+
+func customgoproto(path, dep string) string {
+	if strings.HasPrefix(dep, "library") || strings.HasPrefix(dep, "app") && strings.HasSuffix(dep, ".proto") {
+		deplist := strings.Split(dep, "/")
+		last := deplist[:len(deplist)-1]
+		if strings.Join(last, "/") == path {
+			return ""
+		}
+		last[len(last)-1] = last[len(last)-1] + ":" + last[len(last)-1] + "_proto"
+		dep = strings.Join(last, "/")
+		return "//" + dep
+	}
+	return dep
 }
