@@ -1026,6 +1026,7 @@ func protoMap(path string, dep []string) []string {
 		"github.com/gogo/protobuf/gogoproto/gogo.proto": "@gogo_special_proto//github.com/gogo/protobuf/gogoproto",
 		"google/protobuf/any.proto":                     "@com_google_protobuf//:any_proto",
 		"google/api/annotations.proto":                  "@go_googleapis//google/api:annotations_proto",
+		"google/protobuf/descriptor.proto":              "@com_google_protobuf//:descriptor_proto",
 	}
 	for _, v := range dep {
 		if _, ok := removeMap[v]; ok {
@@ -1050,6 +1051,7 @@ func goProtoMap(path string, dep []string) []string {
 		"@com_github_golang_protobuf//ptypes/any:go_default_library": "@io_bazel_rules_go//proto/wkt:any_go_proto",
 		"google/protobuf/any.proto":                                  "@io_bazel_rules_go//proto/wkt:any_go_proto",
 		"google/api/annotations.proto":                               "@go_googleapis//google/api:annotations_go_proto",
+		"google/protobuf/descriptor.proto":                           "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]
