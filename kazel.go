@@ -396,7 +396,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 	var goLibAttrs = make(Attrs)
 	var rules []*bzl.Rule
 	embedlist := []string{}
-	if len(protoSrcs.src) > 0 && !strings.Contains(path, "vendor") {
+	if len(protoSrcs.src) > 0 {
 		protoRuleAttrs := make(Attrs)
 
 		protoRuleAttrs.SetList("srcs", asExpr(protoSrcs.src).(*bzl.ListExpr))
@@ -910,9 +910,9 @@ func writeFile(path string, f *bzl.File, exists, dryRun bool) (bool, error) {
 	var info bzl.RewriteInfo
 	bzl.Rewrite(f, &info)
 	out := bzl.Format(f)
-	if strings.Contains(path, "vendor") {
-		return false, nil
-	}
+	//if strings.Contains(path, "vendor") {
+	//	return false, nil
+	//}
 	if exists {
 		orig, err := ioutil.ReadFile(path)
 		if err != nil {
@@ -968,6 +968,7 @@ func depMapping(dep []string) []string {
 		"//vendor/github.com/gogo/protobuf/protoc-gen-gogo:go_default_library": "@com_github_gogo_protobuf//protoc-gen-gogo:go_default_library",
 		"//vendor/github.com/gogo/protobuf/sortkeys:go_default_library":        "@com_github_gogo_protobuf//sortkeys:go_default_library",
 		"//vendor/github.com/gogo/protobuf/types:go_default_library":           "@com_github_gogo_protobuf//types:go_default_library",
+		"//vendor/github.com/gogo/protobuf/jsonpb:go_default_library":          "@com_github_gogo_protobuf//jsonpb:go_default_library",
 
 		"//vendor/google.golang.org/grpc/codes:go_default_library":                "@org_golang_google_grpc//codes:go_default_library",
 		"//vendor/google.golang.org/grpc/credentials:go_default_library":          "@org_golang_google_grpc//credentials:go_default_library",
@@ -991,14 +992,18 @@ func depMapping(dep []string) []string {
 		"//vendor/google.golang.org/grpc/stress/client:go_default_library":        "@org_golang_google_grpc//stress/client:go_default_library",
 		"//vendor/google.golang.org/grpc/keepalive:go_default_library":            "@org_golang_google_grpc//keepalive:go_default_library",
 		"//vendor/google.golang.org/grpc/encoding/gzip:go_default_library":        "@org_golang_google_grpc//encoding/gzip:go_default_library",
+		"//vendor/google.golang.org/grpc/stats:go_default_library":                "@org_golang_google_grpc//stats:go_default_library",
+		"//vendor/google.golang.org/grpc/tap:go_default_library":                  "@org_golang_google_grpc//tap:go_default_library",
+		"//vendor/google.golang.org/grpc/encoding:go_default_library":             "@org_golang_google_grpc//encoding:go_default_library",
 
 		"//vendor/google.golang.org/genproto/googleapis/rpc/status:go_default_library": "@org_golang_google_genproto//googleapis/rpc/status:go_default_library",
 
-		"//vendor/golang.org/x/net/context:go_default_library":   "@org_golang_x_net//context:go_default_library",
-		"//vendor/golang.org/x/net/http2:go_default_library":     "@org_golang_x_net//http2:go_default_library",
-		"//vendor/golang.org/x/net/proxy:go_default_library":     "@org_golang_x_net//proxy:go_default_library",
-		"//vendor/golang.org/x/net/html:go_default_library":      "@org_golang_x_net//html:go_default_library",
-		"//vendor/golang.org/x/net/html/atom:go_default_library": "@org_golang_x_net//html/atom:go_default_library",
+		"//vendor/golang.org/x/net/context:go_default_library":     "@org_golang_x_net//context:go_default_library",
+		"//vendor/golang.org/x/net/http2:go_default_library":       "@org_golang_x_net//http2:go_default_library",
+		"//vendor/golang.org/x/net/proxy:go_default_library":       "@org_golang_x_net//proxy:go_default_library",
+		"//vendor/golang.org/x/net/html:go_default_library":        "@org_golang_x_net//html:go_default_library",
+		"//vendor/golang.org/x/net/html/atom:go_default_library":   "@org_golang_x_net//html/atom:go_default_library",
+		"//vendor/golang.org/x/net/http2/hpack:go_default_library": "@org_golang_x_net//http2/hpack:go_default_library",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]
