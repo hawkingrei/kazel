@@ -994,7 +994,11 @@ func depMapping(dep []string) []string {
 
 		"//vendor/google.golang.org/genproto/googleapis/rpc/status:go_default_library": "@org_golang_google_genproto//googleapis/rpc/status:go_default_library",
 
-		"//vendor/golang.org/x/net/context:go_default_library": "@org_golang_x_net//context:go_default_library",
+		"//vendor/golang.org/x/net/context:go_default_library":   "@org_golang_x_net//context:go_default_library",
+		"//vendor/golang.org/x/net/http2:go_default_library":     "@org_golang_x_net//http2:go_default_library",
+		"//vendor/golang.org/x/net/proxy:go_default_library":     "@org_golang_x_net//proxy:go_default_library",
+		"//vendor/golang.org/x/net/html:go_default_library":      "@org_golang_x_net//html:go_default_library",
+		"//vendor/golang.org/x/net/html/atom:go_default_library": "@org_golang_x_net//html/atom:go_default_library",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]
