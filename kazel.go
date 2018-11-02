@@ -962,6 +962,7 @@ func depMapping(dep []string) []string {
 		"//vendor/github.com/golang/protobuf/protoc-gen-go/plugin:go_default_library":     "@com_github_golang_protobuf//protoc-gen-go/plugin:go_default_library",
 		"//vendor/github.com/golang/protobuf/protoc-gen-go/descriptor:go_default_library": "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
 		"//vendor/github.com/golang/protobuf/ptypes:go_default_library":                   "@com_github_golang_protobuf//ptypes:go_default_library_gen",
+		"//vendor/github.com/golang/protobuf/ptypes/empty:go_default_library":             "@com_github_golang_protobuf//ptypes/empty:go_default_library",
 
 		"//vendor/github.com/gogo/protobuf/gogoproto:go_default_library":       "@com_github_gogo_protobuf//gogoproto:go_default_library",
 		"//vendor/github.com/gogo/protobuf/proto:go_default_library":           "@com_github_gogo_protobuf//proto:go_default_library",
@@ -1027,6 +1028,7 @@ func protoMap(path string, dep []string) []string {
 		"google/protobuf/any.proto":                     "@com_google_protobuf//:any_proto",
 		"google/api/annotations.proto":                  "@go_googleapis//google/api:annotations_proto",
 		"google/protobuf/descriptor.proto":              "@com_google_protobuf//:descriptor_proto",
+		"google/protobuf/empty.proto":                   "@com_google_protobuf//:empty_proto",
 	}
 	for _, v := range dep {
 		if _, ok := removeMap[v]; ok {
@@ -1052,6 +1054,7 @@ func goProtoMap(path string, dep []string) []string {
 		"google/protobuf/any.proto":                                  "@io_bazel_rules_go//proto/wkt:any_go_proto",
 		"google/api/annotations.proto":                               "@go_googleapis//google/api:annotations_go_proto",
 		"google/protobuf/descriptor.proto":                           "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
+		"google/protobuf/empty.proto":                                "@com_github_golang_protobuf//ptypes/empty:go_default_library",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]
