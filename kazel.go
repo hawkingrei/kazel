@@ -238,6 +238,9 @@ func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Packa
 				return filepath.SkipDir
 			}
 		}
+		if _, err = os.Stat(filepath.Join(path, ".skip_kazel")); !os.IsNotExist(err) {
+			return filepath.SkipDir
+		}
 		ipath, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
