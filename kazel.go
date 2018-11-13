@@ -1061,7 +1061,7 @@ func goProtoMap(path string, dep []string) []string {
 		"google/protobuf/any.proto":                                  "@io_bazel_rules_go//proto/wkt:any_go_proto",
 		"google/api/annotations.proto":                               "@go_googleapis//google/api:annotations_go_proto",
 		"google/protobuf/descriptor.proto":                           "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
-		"google/protobuf/empty.proto":                                "@com_github_golang_protobuf//ptypes/empty:go_default_library",
+		"google/protobuf/empty.proto":                                "@io_bazel_rules_go//proto/wkt:empty_go_proto",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]
