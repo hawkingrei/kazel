@@ -1056,12 +1056,28 @@ func protoMap(path string, dep []string) []string {
 func goProtoMap(path string, dep []string) []string {
 	result := []string{}
 	mapping := map[string]string{
-		"github.com/gogo/protobuf/gogoproto/gogo.proto":              "@com_github_gogo_protobuf//gogoproto:go_default_library",
+		// gogo
+		"github.com/gogo/protobuf/gogoproto/gogo.proto": "@com_github_gogo_protobuf//gogoproto:go_default_library",
+		// googleapis
+		"google/api/annotations.proto": "@go_googleapis//google/api:annotations_go_proto",
+		"google/rpc/errdetails.proto":  "@go_googleapis//google/rpc:errdetails_go_proto",
+		"google/rpc/code.proto":        "@go_googleapis//google/rpc:code_go_proto",
+		"google/rpc/status.proto":      "@go_googleapis//google/rpc:status_go_proto",
+		// golang protobuf
 		"@com_github_golang_protobuf//ptypes/any:go_default_library": "@io_bazel_rules_go//proto/wkt:any_go_proto",
-		"google/protobuf/any.proto":                                  "@io_bazel_rules_go//proto/wkt:any_go_proto",
-		"google/api/annotations.proto":                               "@go_googleapis//google/api:annotations_go_proto",
-		"google/protobuf/descriptor.proto":                           "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
-		"google/protobuf/empty.proto":                                "@io_bazel_rules_go//proto/wkt:empty_go_proto",
+		// google protobuf
+		"google/protobuf/wrappers.proto":   "@io_bazel_rules_go//proto/wkt:wrappers_go_proto",
+		"google/protobuf/timestamp.proto":  "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
+		"google/protobuf/struct.proto":     "@io_bazel_rules_go//proto/wkt:struct_go_proto",
+		"google/protobuf/field.proto":      "@io_bazel_rules_go//proto/wkt:field_mask_go_proto",
+		"google/protobuf/empty.proto":      "@io_bazel_rules_go//proto/wkt:empty_go_proto",
+		"google/protobuf/duration.proto":   "@io_bazel_rules_go//proto/wkt:duration_go_proto",
+		"google/protobuf/compiler.proto":   "@io_bazel_rules_go//proto/wkt:compiler_plugin_go_proto",
+		"google/protobuf/descriptor.proto": "@io_bazel_rules_go//proto/wkt:descriptor_go_proto",
+		"google/protobuf/api.proto":        "@io_bazel_rules_go//proto/wkt:api_go_proto",
+		"google/protobuf/type.proto":       "@io_bazel_rules_go//proto/wkt:type_go_proto",
+		"google/protobuf/source.proto":     "@io_bazel_rules_go//proto/wkt:source_context_go_proto",
+		"google/protobuf/any.proto":        "@io_bazel_rules_go//proto/wkt:any_go_proto",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]
