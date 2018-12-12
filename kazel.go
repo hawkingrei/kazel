@@ -1012,6 +1012,7 @@ func depMapping(dep []string) []string {
 		"//vendor/golang.org/x/net/ipv4:go_default_library":            "@org_golang_x_net//ipv4:go_default_library",
 		"//vendor/golang.org/x/net/ipv6:go_default_library":            "@org_golang_x_net//ipv6:go_default_library",
 		"//vendor/golang.org/x/net/trace:go_default_library":           "@org_golang_x_net//trace:go_default_library",
+		"//vendor/golang.org/x/net/websocket:go_default_library":       "@org_golang_x_net//websocket:go_default_library",
 	}
 	for _, v := range dep {
 		mapdep, ok := mapping[v]
