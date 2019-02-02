@@ -32,6 +32,8 @@ import (
 
 	bzl "github.com/bazelbuild/buildtools/build"
 	"github.com/golang/glog"
+
+	"github.com/hawkingrei/kazel/util/sets"
 )
 
 const (
@@ -404,22 +406,17 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 	var rules []*bzl.Rule
 	var hasServices, isGogo bool
 	embedlist := []string{}
-	for _, protoSrc := range protoSrcs {
-		isGogo = isGogo || protoSrc.isGogo
-		hasServices = hasServices || protoSrc.hasServices
-	}
-
-	for _, protoSrc := range protoSrcs {
-		protoRuleAttrs := make(Attrs)
-		protoRuleAttrs.SetList("srcs", asExpr(protoSrc.src).(*bzl.ListExpr))
-		protoRuleAttrs.SetList("deps", asExpr(protoMap(v.cfg.GoPrefix, path, protoSrc.imports)).(*bzl.ListExpr))
-		if v.cfg.GoPrefix != "" && !strings.Contains(path, "vendor") {
-			protoRuleAttrs.Set("import_prefix", asExpr(v.cfg.GoPrefix+"/"+path))
-			//if NeedPrefixProto(v.cfg.GoPrefix, protoSrc.imports) {
-			protoRuleAttrs.Set("strip_import_prefix", asExpr(""))
-			//}
+	if len(protoSrcs) != 0 {
+		var packageName, importPath string
+		var protofiles []string
+		protodeps := make(sets.String)
+		for _, protoSrc := range protoSrcs {
+			packageName = protoSrc.packageName
+			importPath = protoSrc.importPath
+			isGogo = isGogo || protoSrc.isGogo
+			hasServices = hasServices || protoSrc.hasServices
 		}
-		rules = append(rules, newRule(RuleTypeProtoLibrary, namer, protoRuleAttrs))
+
 		goProtoRuleAttrs := make(Attrs)
 		if isGogo {
 			if hasServices {
@@ -434,14 +431,34 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_proto"}).(*bzl.ListExpr))
 			}
 		}
+		//protovalue := ":" + packageName + "_proto"
+		//goProtoRuleAttrs.Set("proto", asExpr(protovalue))
+		goProtoRuleAttrs.Set("importpath", asExpr(importPath))
+		for _, protoSrc := range protoSrcs {
+			protoRuleAttrs := make(Attrs)
+			protoRuleAttrs.SetList("srcs", asExpr(protoSrc.src).(*bzl.ListExpr))
+			imports := protoMap(v.cfg.GoPrefix, path, protoSrc.imports)
+			protodeps.Insert(protoSrc.imports...)
+			protoRuleAttrs.SetList("deps", asExpr(imports).(*bzl.ListExpr))
+			if v.cfg.GoPrefix != "" && !strings.Contains(path, "vendor") {
+				protoRuleAttrs.Set("import_prefix", asExpr(v.cfg.GoPrefix+"/"+path))
+				//if NeedPrefixProto(v.cfg.GoPrefix, protoSrc.imports) {
+				protoRuleAttrs.Set("strip_import_prefix", asExpr(""))
+				//}
+			}
+			rules = append(rules, newRule(RuleTypeProtoLibrary, namer, protoRuleAttrs))
 
-		protovalue := ":" + protoSrc.filename + "_proto"
-		goProtoRuleAttrs.Set("proto", asExpr(protovalue))
-		goProtoRuleAttrs.Set("importpath", asExpr(protoSrc.importPath))
-		goProtoRuleAttrs.SetList("deps", asExpr(goProtoMap(v.cfg.GoPrefix, path, protoSrc.imports)).(*bzl.ListExpr))
+			protofiles = append(protofiles, ":"+FilenameWithoutExtension(bzl.Strings(protoRuleAttrs["srcs"])[0])+"_proto")
+
+		}
+		if len(protofiles) == 1 {
+			goProtoRuleAttrs.Set("proto", asExpr(protofiles[0]))
+		} else {
+			goProtoRuleAttrs.Set("protos", asExpr(protofiles).(*bzl.ListExpr))
+		}
+		goProtoRuleAttrs.SetList("deps", asExpr(goProtoMap(v.cfg.GoPrefix, path, protodeps.List())).(*bzl.ListExpr))
 		rules = append(rules, newRule(RuleTypeGoProtoLibrary, namer, goProtoRuleAttrs))
-
-		embedlist = append(embedlist, protoSrc.packageName+"_go_proto")
+		embedlist = append(embedlist, packageName+"_go_proto")
 	}
 
 	deps := v.extractDeps(depMapping(pkg.Imports))
@@ -724,10 +741,7 @@ func newRule(rt ruleType, namer NamerFunc, attrs map[string]bzl.Expr) *bzl.Rule 
 	case RuleTypeProtoLibrary:
 		rule.SetAttr("name", asExpr(FilenameWithoutExtension(bzl.Strings(attrs["srcs"])[0])+"_proto"))
 	case RuleTypeGoProtoLibrary:
-		prename := attrs["proto"].(*bzl.StringExpr).Value
-		prename = strings.Replace(prename, "_proto", "_go_proto", -1)
-		prename = strings.Replace(prename, ":", "", -1)
-		rule.SetAttr("name", asExpr(prename))
+		rule.SetAttr("name", asExpr(namer(rt)))
 	default:
 		rule.SetAttr("name", asExpr(namer(rt)))
 	}
@@ -993,9 +1007,12 @@ func depMapping(dep []string) []string {
 		"//vendor/github.com/golang/protobuf/protoc-gen-go/plugin:go_default_library":     "@com_github_golang_protobuf//protoc-gen-go/plugin:go_default_library",
 		"//vendor/github.com/golang/protobuf/protoc-gen-go/descriptor:go_default_library": "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
 		"//vendor/github.com/golang/protobuf/ptypes:go_default_library":                   "@com_github_golang_protobuf//ptypes:go_default_library_gen",
-		"//vendor/github.com/golang/protobuf/ptypes/empty:go_default_library":             "@io_bazel_rules_go//proto/wkt:empty_go_proto",
-		"//vendor/github.com/golang/protobuf/ptypes/duration:go_default_library":          "@io_bazel_rules_go//proto/wkt:duration_go_proto",
-		"//vendor/github.com/golang/protobuf/ptypes/timestamp:go_default_library":         "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
+
+		"//vendor/github.com/golang/protobuf/ptypes/struct:go_default_library":    "@io_bazel_rules_go//proto/wkt:struct_go_proto",
+		"//vendor/github.com/golang/protobuf/ptypes/wrappers:go_default_library":  "@io_bazel_rules_go//proto/wkt:wrappers_go_proto",
+		"//vendor/github.com/golang/protobuf/ptypes/empty:go_default_library":     "@io_bazel_rules_go//proto/wkt:empty_go_proto",
+		"//vendor/github.com/golang/protobuf/ptypes/duration:go_default_library":  "@io_bazel_rules_go//proto/wkt:duration_go_proto",
+		"//vendor/github.com/golang/protobuf/ptypes/timestamp:go_default_library": "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
 
 		"//vendor/github.com/gogo/protobuf/gogoproto:go_default_library":       "@com_github_gogo_protobuf//gogoproto:go_default_library",
 		"//vendor/github.com/gogo/protobuf/proto:go_default_library":           "@com_github_gogo_protobuf//proto:go_default_library",
@@ -1069,6 +1086,8 @@ func protoMap(goprefix, path string, dep []string) []string {
 		"google/protobuf/empty.proto":                   "@com_google_protobuf//:empty_proto",
 		"google/protobuf/duration.proto":                "@com_google_protobuf//:duration_proto",
 		"google/protobuf/timestamp.proto":               "@com_google_protobuf//:timestamp_proto",
+		"google/protobuf/struct.proto":                  "@com_google_protobuf//:struct_proto",
+		"google/protobuf/wrappers.proto":                "@com_google_protobuf//:wrappers_proto",
 	}
 	for _, v := range dep {
 		if _, ok := removeMap[v]; ok {
@@ -1130,12 +1149,14 @@ func addExpr(x []bzl.Expr, y []bzl.Expr) []bzl.Expr {
 }
 
 func customgoprotolibrary(goprefix, path, dep string) string {
+	if strings.Contains(dep, path) && len(strings.Split(path, "/"))+2 == len(strings.Split(dep, "/")) {
+		return ""
+	}
 	dep = strings.Replace(dep, goprefix+"/", "", -1)
 	if strings.HasPrefix(dep, "library") || strings.HasPrefix(dep, "app") && strings.HasSuffix(dep, ".proto") {
 		deplist := strings.Split(dep, "/")
 		last := deplist[:len(deplist)-1]
-		filename := FilenameWithoutExtension(dep)
-		last[len(last)-1] = last[len(last)-1] + ":" + filename + "_go_proto"
+		last[len(last)-1] = last[len(last)-1] + ":" + last[len(last)-1] + "_go_proto"
 		dep = strings.Join(last, "/")
 		return "//" + dep
 	}
@@ -1143,7 +1164,6 @@ func customgoprotolibrary(goprefix, path, dep string) string {
 }
 
 func customgoproto(goprefix, path, dep string) string {
-	fmt.Println(dep)
 	dep = strings.Replace(dep, goprefix+"/", "", -1)
 	if strings.HasPrefix(dep, "library") || strings.HasPrefix(dep, "app") && strings.HasSuffix(dep, ".proto") {
 		deplist := strings.Split(dep, "/")
