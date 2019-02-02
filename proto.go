@@ -15,6 +15,7 @@ import (
 
 type ProtoInfo struct {
 	src         []string
+	filename    string
 	importPath  string
 	packageName string
 	imports     []string
@@ -32,17 +33,24 @@ const (
 	goCommonTimeIndex    = 5
 )
 
+func FilenameWithoutExtension(fn string) string {
+	path := strings.TrimSuffix(fn, path.Ext(fn))
+	f := strings.Split(path, "/")
+	return f[len(f)-1]
+}
+
 func protoFileInfo(goPrefix, basepath string, protosrc []string) ProtoInfo {
 	//info := fileNameInfo(dir, rel, name)
 	var info ProtoInfo
 	info.src = protosrc
 	for _, srcpath := range info.src {
+
 		content, err := ioutil.ReadFile(filepath.Join(basepath, srcpath))
 		if err != nil {
 			log.Printf("%s: error reading proto file: %v", srcpath, err)
 			return info
 		}
-
+		info.filename = FilenameWithoutExtension(srcpath)
 		for _, match := range protoRe.FindAllSubmatch(content, -1) {
 			switch {
 			case match[importSubexpIndex] != nil:
