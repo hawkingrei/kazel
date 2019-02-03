@@ -410,31 +410,13 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		var packageName, importPath string
 		var protofiles []string
 		protodeps := make(sets.String)
+
 		for _, protoSrc := range protoSrcs {
 			packageName = protoSrc.packageName
 			importPath = protoSrc.importPath
 			isGogo = isGogo || protoSrc.isGogo
 			hasServices = hasServices || protoSrc.hasServices
-		}
 
-		goProtoRuleAttrs := make(Attrs)
-		if isGogo {
-			if hasServices {
-				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gogofast_grpc"}).(*bzl.ListExpr))
-			} else {
-				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gogofast_proto"}).(*bzl.ListExpr))
-			}
-		} else {
-			if hasServices {
-				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_grpc"}).(*bzl.ListExpr))
-			} else {
-				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_proto"}).(*bzl.ListExpr))
-			}
-		}
-		//protovalue := ":" + packageName + "_proto"
-		//goProtoRuleAttrs.Set("proto", asExpr(protovalue))
-		goProtoRuleAttrs.Set("importpath", asExpr(importPath))
-		for _, protoSrc := range protoSrcs {
 			protoRuleAttrs := make(Attrs)
 			protoRuleAttrs.SetList("srcs", asExpr(protoSrc.src).(*bzl.ListExpr))
 			imports := protoMap(v.cfg.GoPrefix, path, protoSrc.imports)
@@ -451,6 +433,21 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 			protofiles = append(protofiles, ":"+FilenameWithoutExtension(bzl.Strings(protoRuleAttrs["srcs"])[0])+"_proto")
 
 		}
+		goProtoRuleAttrs := make(Attrs)
+		if isGogo {
+			if hasServices {
+				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gogofast_grpc"}).(*bzl.ListExpr))
+			} else {
+				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:gogofast_proto"}).(*bzl.ListExpr))
+			}
+		} else {
+			if hasServices {
+				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_grpc"}).(*bzl.ListExpr))
+			} else {
+				goProtoRuleAttrs.SetList("compilers", asExpr([]string{"@io_bazel_rules_go//proto:go_proto"}).(*bzl.ListExpr))
+			}
+		}
+		goProtoRuleAttrs.Set("importpath", asExpr(importPath))
 		if len(protofiles) == 1 {
 			goProtoRuleAttrs.Set("proto", asExpr(protofiles[0]))
 		} else {
