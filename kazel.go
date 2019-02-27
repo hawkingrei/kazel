@@ -421,6 +421,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 			protoRuleAttrs.SetList("srcs", asExpr(protoSrc.src).(*bzl.ListExpr))
 			imports := protoMap(v.cfg.GoPrefix, path, protoSrc.imports)
 			protodeps.Insert(protoSrc.imports...)
+			
 			protoRuleAttrs.SetList("deps", asExpr(imports).(*bzl.ListExpr))
 			if v.cfg.GoPrefix != "" && !strings.Contains(path, "vendor") {
 				protoRuleAttrs.Set("import_prefix", asExpr(v.cfg.GoPrefix+"/"+path))
@@ -428,6 +429,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 				protoRuleAttrs.Set("strip_import_prefix", asExpr(""))
 				//}
 			}
+			protoRuleAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
 			rules = append(rules, newRule(RuleTypeProtoLibrary, namer, protoRuleAttrs))
 
 			protofiles = append(protofiles, ":"+FilenameWithoutExtension(bzl.Strings(protoRuleAttrs["srcs"])[0])+"_proto")
@@ -454,6 +456,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 			goProtoRuleAttrs.Set("protos", asExpr(protofiles).(*bzl.ListExpr))
 		}
 		goProtoRuleAttrs.SetList("deps", asExpr(goProtoMap(v.cfg.GoPrefix, path, protodeps.List())).(*bzl.ListExpr))
+		goProtoRuleAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
 		rules = append(rules, newRule(RuleTypeGoProtoLibrary, namer, goProtoRuleAttrs))
 		embedlist = append(embedlist, packageName+"_go_proto")
 	}
