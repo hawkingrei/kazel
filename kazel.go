@@ -421,7 +421,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 			protoRuleAttrs.SetList("srcs", asExpr(protoSrc.src).(*bzl.ListExpr))
 			imports := protoMap(v.cfg.GoPrefix, path, protoSrc.imports)
 			protodeps.Insert(protoSrc.imports...)
-			
+
 			protoRuleAttrs.SetList("deps", asExpr(imports).(*bzl.ListExpr))
 			if v.cfg.GoPrefix != "" && !strings.Contains(path, "vendor") {
 				protoRuleAttrs.Set("import_prefix", asExpr(v.cfg.GoPrefix+"/"+path))
@@ -1001,18 +1001,18 @@ func walk(root string, walkFn filepath.WalkFunc) error {
 func depMapping(dep []string) []string {
 	result := []string{}
 	mapping := map[string]string{
-		"//vendor/github.com/golang/protobuf/proto:go_default_library":                    "@com_github_golang_protobuf//proto:go_default_library",
-		"//vendor/github.com/golang/protobuf/ptypes/any:go_default_library":               "@io_bazel_rules_go//proto/wkt:any_go_proto",
-		"//vendor/github.com/golang/protobuf/jsonpb:go_default_library":                   "@com_github_golang_protobuf//jsonpb:go_default_library",
-		"//vendor/github.com/golang/protobuf/protoc-gen-go/plugin:go_default_library":     "@com_github_golang_protobuf//protoc-gen-go/plugin:go_default_library",
-		"//vendor/github.com/golang/protobuf/protoc-gen-go/descriptor:go_default_library": "@com_github_golang_protobuf//protoc-gen-go/descriptor:go_default_library",
-		"//vendor/github.com/golang/protobuf/ptypes:go_default_library":                   "@com_github_golang_protobuf//ptypes:go_default_library_gen",
+		"//vendor/github.com/golang/protobuf/proto:go_default_library":                "@com_github_golang_protobuf//proto:go_default_library",
+		"//vendor/github.com/golang/protobuf/ptypes/any:go_default_library":           "@io_bazel_rules_go//proto/wkt:any_go_proto",
+		"//vendor/github.com/golang/protobuf/jsonpb:go_default_library":               "@com_github_golang_protobuf//jsonpb:go_default_library",
+		"//vendor/github.com/golang/protobuf/protoc-gen-go/plugin:go_default_library": "@com_github_golang_protobuf//protoc-gen-go/plugin:go_default_library",
+		"//vendor/github.com/golang/protobuf/ptypes:go_default_library":               "@com_github_golang_protobuf//ptypes:go_default_library_gen",
 
-		"//vendor/github.com/golang/protobuf/ptypes/struct:go_default_library":    "@io_bazel_rules_go//proto/wkt:struct_go_proto",
-		"//vendor/github.com/golang/protobuf/ptypes/wrappers:go_default_library":  "@io_bazel_rules_go//proto/wkt:wrappers_go_proto",
-		"//vendor/github.com/golang/protobuf/ptypes/empty:go_default_library":     "@io_bazel_rules_go//proto/wkt:empty_go_proto",
-		"//vendor/github.com/golang/protobuf/ptypes/duration:go_default_library":  "@io_bazel_rules_go//proto/wkt:duration_go_proto",
-		"//vendor/github.com/golang/protobuf/ptypes/timestamp:go_default_library": "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
+		"//vendor/github.com/golang/protobuf/ptypes/struct:go_default_library":            "@io_bazel_rules_go//proto/wkt:struct_go_proto",
+		"//vendor/github.com/golang/protobuf/ptypes/wrappers:go_default_library":          "@io_bazel_rules_go//proto/wkt:wrappers_go_proto",
+		"//vendor/github.com/golang/protobuf/ptypes/empty:go_default_library":             "@io_bazel_rules_go//proto/wkt:empty_go_proto",
+		"//vendor/github.com/golang/protobuf/ptypes/duration:go_default_library":          "@io_bazel_rules_go//proto/wkt:duration_go_proto",
+		"//vendor/github.com/golang/protobuf/ptypes/timestamp:go_default_library":         "@io_bazel_rules_go//proto/wkt:timestamp_go_proto",
+		"//vendor/github.com/golang/protobuf/protoc-gen-go/descriptor:go_default_library": "@io_bazel_rules_go//proto/wkt:descriptor_go_proto",
 
 		"//vendor/github.com/gogo/protobuf/gogoproto:go_default_library":       "@com_github_gogo_protobuf//gogoproto:go_default_library",
 		"//vendor/github.com/gogo/protobuf/proto:go_default_library":           "@com_github_gogo_protobuf//proto:go_default_library",
