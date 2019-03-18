@@ -458,7 +458,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		goProtoRuleAttrs.SetList("deps", asExpr(goProtoMap(v.cfg.GoPrefix, path, protodeps.List())).(*bzl.ListExpr))
 		goProtoRuleAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
 		rules = append(rules, newRule(RuleTypeGoProtoLibrary, namer, goProtoRuleAttrs))
-		embedlist = append(embedlist, packageName+"_go_proto")
+		embedlist = append(embedlist, ":"+packageName+"_go_proto")
 	}
 
 	deps := v.extractDeps(depMapping(pkg.Imports))
