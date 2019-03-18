@@ -128,7 +128,7 @@ func newVendorer(root, cfgPath string, dryRun bool) (*Vendorer, error) {
 		icache:       map[icacheKey]icacheVal{},
 		cfg:          cfg,
 		newRules:     make(map[string][]*bzl.Rule),
-		managedAttrs: []string{"srcs", "deps", "importpath", "compilers", "import_prefix", "strip_import_prefix"},
+		managedAttrs: []string{"srcs", "deps", "protos", "proto", "importpath", "compilers", "import_prefix", "strip_import_prefix"},
 	}
 
 	for _, sp := range cfg.SkippedPaths {
@@ -431,7 +431,6 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 			}
 			protoRuleAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
 			rules = append(rules, newRule(RuleTypeProtoLibrary, namer, protoRuleAttrs))
-
 			protofiles = append(protofiles, ":"+FilenameWithoutExtension(bzl.Strings(protoRuleAttrs["srcs"])[0])+"_proto")
 
 		}
