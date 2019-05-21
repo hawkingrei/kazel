@@ -6,6 +6,6 @@ go_library(
         "empty.go",
         "string.go",
     ],
-    importpath = "github.com/hawkingrei/kazel/kazel/util/sets",
+    importpath = "github.com/hawkingrei/kazel/sets",
     visibility = ["//visibility:public"],
 )
