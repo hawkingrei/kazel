@@ -39,7 +39,7 @@ func FilenameWithoutExtension(fn string) string {
 	return f[len(f)-1]
 }
 
-func protoFileInfo(goPrefix, basepath string, protosrc []string) ProtoInfo {
+func protoFileInfo(goPrefix, pathPrefix, basepath string, protosrc []string) ProtoInfo {
 	//info := fileNameInfo(dir, rel, name)
 	var info ProtoInfo
 	info.src = protosrc
@@ -107,7 +107,7 @@ func protoFileInfo(goPrefix, basepath string, protosrc []string) ProtoInfo {
 			info.isGogo = true
 		}
 	}
-	info.importPath = filepath.Join(goPrefix, basepath)
+	info.importPath = filepath.Join(goPrefix, pathPrefix, basepath)
 	return info
 }
 
