@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	bzl "github.com/bazelbuild/buildtools/build"
 )
@@ -86,7 +87,8 @@ func (v *Vendorer) walkSource(pkgPath string) ([]string, error) {
 	}
 
 	pkgSrcsExpr := &bzl.LiteralExpr{Token: `glob(["**"])`}
-	if pkgPath == "." {
+
+	if pkgPath == "." && filepath.Base(v.root) == v.cfg.GoPrefix {
 		pkgSrcsExpr = &bzl.LiteralExpr{Token: `glob(["**"], exclude=["bazel-*/**", ".git/**", ".idea/**"])`}
 	}
 
@@ -105,5 +107,7 @@ func (v *Vendorer) walkSource(pkgPath string) ([]string, error) {
 				"visibility": asExpr([]string{"//visibility:public"}),
 			}),
 	})
-	return []string{fmt.Sprintf("//%s:%s", pkgPath, allSrcsTarget)}, nil
+	t := strings.Split(v.root, v.cfg.GoPrefix)[1]
+	t = strings.TrimPrefix(t, "/")
+	return []string{fmt.Sprintf("//%s:%s", filepath.Join(t, pkgPath), allSrcsTarget)}, nil
 }

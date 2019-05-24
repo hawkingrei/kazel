@@ -33,7 +33,7 @@ import (
 	bzl "github.com/bazelbuild/buildtools/build"
 	"github.com/golang/glog"
 
-	"github.com/hawkingrei/kazel/kazel/util/sets"
+	"github.com/hawkingrei/kazel/sets"
 )
 
 const (
@@ -256,6 +256,10 @@ func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Packa
 			}
 			return err
 		}
+		path, err = v.getRootRel(path)
+		if err != nil {
+			return err
+		}
 		return f(path, ipath, pkg, conffiles, protofiles)
 	})
 }
@@ -267,6 +271,17 @@ func (v *Vendorer) walkRepo() error {
 		}
 	}
 	return nil
+}
+
+func (v *Vendorer) getRootRel(path string) (string, error) {
+	r := strings.Split(v.root, v.cfg.GoPrefix)[0] + v.cfg.GoPrefix + "/"
+
+	path, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	path = strings.TrimPrefix(path, r)
+	return filepath.Clean(path), nil
 }
 
 func (v *Vendorer) getAllProto(path string) []string {
@@ -374,8 +389,11 @@ func (v *Vendorer) updatePkg(path, _ string, pkg *build.Package, conffile, proto
 	testSrcs := srcNameMap(pkg.TestGoFiles)
 	xtestSrcs := srcNameMap(pkg.XTestGoFiles)
 	//pf := protoFileInfo(v.cfg.GoPrefix, path, protofile)
+	t := strings.Split(v.root, v.cfg.GoPrefix)[1]
+	t = strings.TrimPrefix(t, "/") + "/"
+	path = strings.TrimPrefix(path, t)
 	for _, proto := range protofile {
-		pfs = append(pfs, protoFileInfo(v.cfg.GoPrefix, path, []string{proto}))
+		pfs = append(pfs, protoFileInfo(v.cfg.GoPrefix, t, path, []string{proto}))
 	}
 
 	v.addRules(path, v.emit(path, srcs, cgoSrcs, testSrcs, xtestSrcs, pfs, pkg, conffile, func(rt ruleType) string {
@@ -424,7 +442,9 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 
 			protoRuleAttrs.SetList("deps", asExpr(imports).(*bzl.ListExpr))
 			if v.cfg.GoPrefix != "" && !strings.Contains(path, "vendor") {
-				protoRuleAttrs.Set("import_prefix", asExpr(v.cfg.GoPrefix+"/"+path))
+				t := strings.Split(v.root, v.cfg.GoPrefix)[1]
+				t = strings.TrimPrefix(t, "/") + "/"
+				protoRuleAttrs.Set("import_prefix", asExpr(filepath.Join(v.cfg.GoPrefix, t, path)))
 				//if NeedPrefixProto(v.cfg.GoPrefix, protoSrc.imports) {
 				protoRuleAttrs.Set("strip_import_prefix", asExpr(""))
 				//}
@@ -472,6 +492,10 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		if strings.Contains(path, "vendor") {
 			goLibAttrs.Set("importpath", asExpr(strings.Replace(path, "vendor/", "", -1)))
 		} else {
+			path, err := v.getRootRel(path)
+			if err != nil {
+				return nil
+			}
 			goLibAttrs.Set("importpath", asExpr(filepath.Join(v.cfg.GoPrefix, path)))
 		}
 		goLibAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
@@ -551,8 +575,10 @@ func (v *Vendorer) walkVendor() error {
 		cgoSrcs := srcNameMap(pkg.CgoFiles, pkg.CFiles, pkg.CXXFiles, pkg.HFiles)
 		testSrcs := srcNameMap(pkg.TestGoFiles)
 		xtestSrcs := srcNameMap(pkg.XTestGoFiles)
+		t := strings.Split(v.root, v.cfg.GoPrefix)[1]
+		t = strings.TrimPrefix(t, "/") + "/"
 		for _, proto := range protos {
-			pfs = append(pfs, protoFileInfo(v.cfg.GoPrefix, path, []string{proto}))
+			pfs = append(pfs, protoFileInfo(v.cfg.GoPrefix, t, path, []string{proto}))
 		}
 		tagBase := v.resolve(ipath).tag
 
@@ -581,6 +607,21 @@ func (v *Vendorer) walkVendor() error {
 	if v.cfg.VendorMultipleBuildFiles {
 		updateFunc = v.updatePkg
 	}
+
+	vendorExist := false
+	fs, err := ioutil.ReadDir(v.root)
+	if err != nil {
+		return err
+	}
+	for _, f := range fs {
+		if f.Name() == "vendor" && f.IsDir() {
+			vendorExist = true
+		}
+	}
+	if !vendorExist {
+		return nil
+	}
+
 	if err := v.walk(vendorPath, updateFunc); err != nil {
 		return err
 	}
