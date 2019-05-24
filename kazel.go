@@ -235,8 +235,14 @@ func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Packa
 		if skipVendor && strings.HasPrefix(path, vendorPath) {
 			return filepath.SkipDir
 		}
+
+		rootRel, err := v.getRootRel(path)
+		if err != nil {
+			return err
+		}
+
 		for _, r := range v.skippedPaths {
-			if r.MatchString(path) {
+			if r.MatchString(rootRel) {
 				return filepath.SkipDir
 			}
 		}
@@ -256,11 +262,7 @@ func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Packa
 			}
 			return err
 		}
-		path, err = v.getRootRel(path)
-		if err != nil {
-			return err
-		}
-		return f(path, ipath, pkg, conffiles, protofiles)
+		return f(rootRel, ipath, pkg, conffiles, protofiles)
 	})
 }
 
