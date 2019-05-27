@@ -116,6 +116,17 @@ func newVendorer(root, cfgPath string, dryRun bool) (*Vendorer, error) {
 	if !filepath.IsAbs(cfgPath) {
 		cfgPath = filepath.Join(absRoot, cfgPath)
 	}
+
+	_, err = os.Stat(cfgPath)
+	notExist := os.IsNotExist(err)
+	for notExist {
+		dir, file := filepath.Split(cfgPath)
+		dir, _ = filepath.Split(strings.TrimSuffix(dir, "/"))
+		cfgPath = filepath.Join(dir, file)
+		_, err = os.Stat(cfgPath)
+		notExist = os.IsNotExist(err)
+	}
+
 	cfg, err := ReadCfg(cfgPath)
 	if err != nil {
 		return nil, err
