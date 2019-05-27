@@ -116,6 +116,17 @@ func newVendorer(root, cfgPath string, dryRun bool) (*Vendorer, error) {
 	if !filepath.IsAbs(cfgPath) {
 		cfgPath = filepath.Join(absRoot, cfgPath)
 	}
+
+	_, err = os.Stat(cfgPath)
+	notExist := os.IsNotExist(err)
+	for notExist {
+		dir, file := filepath.Split(cfgPath)
+		dir, _ = filepath.Split(strings.TrimSuffix(dir, "/"))
+		cfgPath = filepath.Join(dir, file)
+		_, err = os.Stat(cfgPath)
+		notExist = os.IsNotExist(err)
+	}
+
 	cfg, err := ReadCfg(cfgPath)
 	if err != nil {
 		return nil, err
@@ -235,8 +246,14 @@ func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Packa
 		if skipVendor && strings.HasPrefix(path, vendorPath) {
 			return filepath.SkipDir
 		}
+
+		rootRel, err := v.getRootRel(path)
+		if err != nil {
+			return err
+		}
+
 		for _, r := range v.skippedPaths {
-			if r.MatchString(path) {
+			if r.MatchString(rootRel) {
 				return filepath.SkipDir
 			}
 		}
@@ -256,11 +273,7 @@ func (v *Vendorer) walk(root string, f func(path, ipath string, pkg *build.Packa
 			}
 			return err
 		}
-		path, err = v.getRootRel(path)
-		if err != nil {
-			return err
-		}
-		return f(path, ipath, pkg, conffiles, protofiles)
+		return f(rootRel, ipath, pkg, conffiles, protofiles)
 	})
 }
 
@@ -474,6 +487,7 @@ func (v *Vendorer) emit(path string, srcs, cgoSrcs, testSrcs, xtestSrcs *bzl.Lis
 		} else {
 			goProtoRuleAttrs.Set("protos", asExpr(protofiles).(*bzl.ListExpr))
 		}
+		path, _ := v.getRootRel(path)
 		goProtoRuleAttrs.SetList("deps", asExpr(goProtoMap(v.cfg.GoPrefix, path, protodeps.List())).(*bzl.ListExpr))
 		goProtoRuleAttrs.SetList("visibility", asExpr([]string{"//visibility:public"}).(*bzl.ListExpr))
 		rules = append(rules, newRule(RuleTypeGoProtoLibrary, namer, goProtoRuleAttrs))
